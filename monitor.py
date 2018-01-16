@@ -14,24 +14,26 @@ from kubernetes.stream import stream
 
 def connect_monitor(pod_name: str, namespace: str, queue: Queue,
                     close_queue: Queue, api: core_v1_api.CoreV1Api,
-                    endpoint: int):
+                    endpoint: int, verbose: bool):
     try:
         resp = api.read_namespaced_pod(name=pod_name,
                                        namespace=namespace)
     except ApiException as e:
         if e.status != 404:
-            print("Unknown error: %s" % e)
+            print('Unknown error: %s' % e)
             exit(1)
 
 
 # calling exec and wait for response.
     exec_command = [
         'cilium',
-        'monitor',
-        '-v']
+        'monitor']
+
+    if verbose:
+        exec_command.append('-v')
 
     if endpoint:
-        exec_command.append("--related-to")
+        exec_command.append('--related-to')
         exec_command.append(str(endpoint))
 
     resp = stream(api.connect_get_namespaced_pod_exec, pod_name, namespace,
@@ -43,15 +45,15 @@ def connect_monitor(pod_name: str, namespace: str, queue: Queue,
     while resp.is_open():
         resp.update(timeout=1)
         if resp.peek_stdout():
-            queue.put({"name": pod_name,  "output": resp.read_stdout()})
+            queue.put({'name': pod_name,  'output': resp.read_stdout()})
         if resp.peek_stderr():
-            queue.put({"name": pod_name,  "output": resp.read_stderr()})
+            queue.put({'name': pod_name,  'output': resp.read_stderr()})
         if not close_queue.empty():
             break
 
     resp.close()
 
-def run_monitors(endpoint: int, queue: Queue,
+def run_monitors(endpoint: int, verbose: bool, queue: Queue,
                  close_queue: Queue) -> List[Process]:
 
     config.load_kube_config()
@@ -63,16 +65,16 @@ def run_monitors(endpoint: int, queue: Queue,
 
     try:
         pods = api.list_namespaced_pod(namespace,
-                                       label_selector="k8s-app=cilium")
+                                       label_selector='k8s-app=cilium')
     except APIException as e:
-        print("could not list Cilium pods: %s\n" % e)
+        print('could not list Cilium pods: %s\n' % e)
         sys.exit(1)
 
     names = [pod.metadata.name for pod in pods.items]
 
     processes = [Process(target=connect_monitor,
                          args=(name, namespace, queue, close_queue, api,
-                               endpoint))
+                               endpoint, verbose))
                  for name in names]
     for p in processes:
         p.start()
@@ -80,8 +82,8 @@ def run_monitors(endpoint: int, queue: Queue,
     return processes
 
 def close_monitors(close_queue: Queue, procs: List[Process]):
-    print("closing")
-    close_queue.put("close")
+    print('closing')
+    close_queue.put('close')
     for p in processes:
         p.join()
 
@@ -93,12 +95,13 @@ def wait_for_output(queue: Queue):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--endpoint', type=int, help="endpoint id", default=0)
+    parser.add_argument('--endpoint', type=int, help='endpoint id', default=0)
+    parser.add_argument('--verbose', type=bool, default=False)
     args = parser.parse_args()
 
     q = Queue()
     close_queue = Queue()
-    processes = run_monitors(args.endpoint, q, close_queue)
+    processes = run_monitors(args.endpoint, args.verbose, q, close_queue)
 
     try:
         wait_for_output(q)
