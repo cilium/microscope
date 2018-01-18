@@ -1,4 +1,5 @@
 import time
+import signal
 import argparse
 import sys
 from multiprocessing import Process, Queue
@@ -11,6 +12,9 @@ from kubernetes.client.rest import ApiException
 from kubernetes.stream import stream
 
 
+# we are ignoring sigint in monitor processes as they are closed via queue
+def sigint_in_monitor(signum, frame):
+    pass
 
 def connect_monitor(pod_name: str, namespace: str, queue: Queue,
                     close_queue: Queue, api: core_v1_api.CoreV1Api,
@@ -39,17 +43,21 @@ def connect_monitor(pod_name: str, namespace: str, queue: Queue,
     resp = stream(api.connect_get_namespaced_pod_exec, pod_name, namespace,
                   command=exec_command,
                   stderr=True, stdin=True,
-                  stdout=True, tty=False,
+                  stdout=True, tty=True,
                   _preload_content=False)
+
+    signal.signal(signal.SIGINT, sigint_in_monitor)
 
     while resp.is_open():
         resp.update(timeout=1)
+        if not close_queue.empty():
+            print("Closing monitor")
+            resp.write_stdin('\x03')
+            break
         if resp.peek_stdout():
             queue.put({'name': pod_name,  'output': resp.read_stdout()})
         if resp.peek_stderr():
             queue.put({'name': pod_name,  'output': resp.read_stderr()})
-        if not close_queue.empty():
-            break
 
     resp.close()
 
