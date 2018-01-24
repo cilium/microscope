@@ -10,18 +10,36 @@ from kubernetes.client import Configuration
 from kubernetes.client.apis import core_v1_api
 from kubernetes.client.rest import ApiException
 from kubernetes.stream import stream
+import urwid
+import urwid.raw_display
 
 
 # we are ignoring sigint in monitor processes as they are closed via queue
 def sigint_in_monitor(signum, frame):
     pass
 
-def connect_monitor(pod_name: str, namespace: str, queue: Queue,
-                    close_queue: Queue, api: core_v1_api.CoreV1Api,
-                    endpoint: int, verbose: bool):
+class Monitor:
+    def __init__(self,
+                 pod_name: str,
+                 namespace: str,
+                 queue: Queue,
+                 close_queue: Queue,
+                 api: core_v1_api.CoreV1Api,
+                 endpoint: int,
+                 verbose: bool):
+        self.pod_name = pod_name
+        self.namespace = namespace
+        self.queue = queue
+        self.close_queue= close_queue
+        self.api = api
+        self.endpoint = endpoint
+        self.verbose = verbose
+        self.process = Process(target=connect_monitor, args=(self,))
+
+def connect_monitor(m: Monitor):
     try:
-        resp = api.read_namespaced_pod(name=pod_name,
-                                       namespace=namespace)
+        resp = m.api.read_namespaced_pod(name=m.pod_name,
+                                       namespace=m.namespace)
     except ApiException as e:
         if e.status != 404:
             print('Unknown error: %s' % e)
@@ -33,14 +51,15 @@ def connect_monitor(pod_name: str, namespace: str, queue: Queue,
         'cilium',
         'monitor']
 
-    if verbose:
+    if m.verbose:
         exec_command.append('-v')
 
-    if endpoint:
+    if m.endpoint:
         exec_command.append('--related-to')
-        exec_command.append(str(endpoint))
+        exec_command.append(str(m.endpoint))
 
-    resp = stream(api.connect_get_namespaced_pod_exec, pod_name, namespace,
+    resp = stream(m.api.connect_get_namespaced_pod_exec, m.pod_name,
+                  m.namespace,
                   command=exec_command,
                   stderr=True, stdin=True,
                   stdout=True, tty=True,
@@ -50,19 +69,19 @@ def connect_monitor(pod_name: str, namespace: str, queue: Queue,
 
     while resp.is_open():
         resp.update(timeout=1)
-        if not close_queue.empty():
+        if not m.close_queue.empty():
             print("Closing monitor")
             resp.write_stdin('\x03')
             break
         if resp.peek_stdout():
-            queue.put({'name': pod_name,  'output': resp.read_stdout()})
+            m.queue.put({'name': m.pod_name,  'output': resp.read_stdout()})
         if resp.peek_stderr():
-            queue.put({'name': pod_name,  'output': resp.read_stderr()})
+            m.queue.put({'name': m.pod_name,  'output': resp.read_stderr()})
 
     resp.close()
 
 def run_monitors(endpoint: int, verbose: bool, queue: Queue,
-                 close_queue: Queue) -> List[Process]:
+                 close_queue: Queue) -> List[Monitor]:
 
     config.load_kube_config()
     c = Configuration()
@@ -80,26 +99,26 @@ def run_monitors(endpoint: int, verbose: bool, queue: Queue,
 
     names = [pod.metadata.name for pod in pods.items]
 
-    processes = [Process(target=connect_monitor,
-                         args=(name, namespace, queue, close_queue, api,
-                               endpoint, verbose))
-                 for name in names]
-    for p in processes:
-        p.start()
+    monitors = [Monitor(name, namespace, queue, close_queue, api, endpoint, verbose) for name in names]
 
-    return processes
+    for m in monitors:
+        m.process.start()
 
-def close_monitors(close_queue: Queue, procs: List[Process]):
+    return monitors
+
+def close_monitors(close_queue: Queue, monitors: List[Monitor]):
     print('closing')
     close_queue.put('close')
-    for p in processes:
-        p.join()
+    for m in monitors:
+        m.process.join()
 
 def wait_for_output(queue: Queue):
     while True:
-        print(q.get())
+        handle_output(q.get())
         time.sleep(1)
 
+def handle_output(output):
+    print(output)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -109,11 +128,11 @@ if __name__ == '__main__':
 
     q = Queue()
     close_queue = Queue()
-    processes = run_monitors(args.endpoint, args.verbose, q, close_queue)
+    monitors = run_monitors(args.endpoint, args.verbose, q, close_queue)
 
     try:
         wait_for_output(q)
     except KeyboardInterrupt:
         pass
     finally:
-        close_monitors(close_queue, processes)
+        close_monitors(close_queue, monitors)
