@@ -3,6 +3,7 @@ import signal
 import argparse
 import sys
 from multiprocessing import Process, Queue
+import threading
 from typing import List
 
 from kubernetes import config
@@ -12,7 +13,6 @@ from kubernetes.client.rest import ApiException
 from kubernetes.stream import stream
 import urwid
 import urwid.raw_display
-
 
 # we are ignoring sigint in monitor processes as they are closed via queue
 def sigint_in_monitor(signum, frame):
@@ -30,11 +30,13 @@ class Monitor:
         self.pod_name = pod_name
         self.namespace = namespace
         self.queue = queue
-        self.close_queue= close_queue
+        self.close_queue = close_queue
         self.api = api
         self.endpoint = endpoint
         self.verbose = verbose
         self.process = Process(target=connect_monitor, args=(self,))
+        self.output = pod_name + "\n"
+        self.output_lock = threading.Semaphore()
 
 def connect_monitor(m: Monitor):
     try:
@@ -80,6 +82,9 @@ def connect_monitor(m: Monitor):
 
     resp.close()
 
+    m.close_queue.cancel_join_thread()
+    m.queue.cancel_join_thread()
+
 def run_monitors(endpoint: int, verbose: bool, queue: Queue,
                  close_queue: Queue) -> List[Monitor]:
 
@@ -99,7 +104,9 @@ def run_monitors(endpoint: int, verbose: bool, queue: Queue,
 
     names = [pod.metadata.name for pod in pods.items]
 
-    monitors = [Monitor(name, namespace, queue, close_queue, api, endpoint, verbose) for name in names]
+    monitors = [
+        Monitor(name, namespace, queue, close_queue, api, endpoint, verbose)
+        for name in names]
 
     for m in monitors:
         m.process.start()
@@ -112,13 +119,87 @@ def close_monitors(close_queue: Queue, monitors: List[Monitor]):
     for m in monitors:
         m.process.join()
 
-def wait_for_output(queue: Queue):
-    while True:
-        handle_output(q.get())
-        time.sleep(1)
+def ui(monitors):
+    monitor_columns = {m.pod_name: (urwid.Text(m.output), m)
+                       for m in monitors}
 
-def handle_output(output):
-    print(output)
+    text_header = (u"Cilium Monitor Sink."
+                   u"UP / DOWN / PAGE UP / PAGE DOWN scroll.  F8 exits.")
+
+    blank = urwid.Divider()
+    text1 = urwid.Text("troolololololo")
+    listbox_content = [
+        urwid.Columns([c[0] for c in monitor_columns.values()],
+                      5, min_width=20),
+    ]
+
+    header = urwid.AttrWrap(urwid.Text(text_header), 'header')
+    listbox = urwid.ListBox(urwid.SimpleListWalker(listbox_content))
+    frame = urwid.Frame(urwid.AttrWrap(listbox, 'body'), header=header)
+
+    palette = [
+        ('body','black','light gray', 'standout'),
+        ('reverse','light gray','black'),
+        ('header','white','dark red', 'bold'),
+        ('important','dark blue','light gray',('standout','underline')),
+        ('editfc','white', 'dark blue', 'bold'),
+        ('editbx','light gray', 'dark blue'),
+        ('editcp','black','light gray', 'standout'),
+        ('bright','dark gray','light gray', ('bold','standout')),
+        ('buttn','black','dark cyan'),
+        ('buttnf','white','dark blue','bold'),
+        ]
+
+
+    screen = urwid.raw_display.Screen()
+
+    def dump_data():
+        timestamp = time.time()
+        outputs = {}
+        for m in monitors:
+            if m.output_lock.acquire():
+                outputs[m.pod_name] = m.output
+                m.output_lock.release()
+
+        for name, o in outputs.items():
+            with open(name + "-" + str(timestamp), 'w') as f:
+                f.write(o)
+
+    def unhandled(key):
+        if key == 'f8':
+            raise urwid.ExitMainLoop()
+        if key == 's':
+            dump_data()
+
+
+    mainloop = urwid.MainLoop(frame, palette, screen,
+        unhandled_input=unhandled)
+
+    def wait_for_values(monitor_columns):
+        m = next(iter(monitor_columns.values()))
+        queue = m[1].queue
+        close_queue = m[1].close_queue
+
+        while(close_queue.empty()):
+            try:
+                output = q.get(True, 5)
+            except Queue.Empty:
+                continue
+
+            c = monitor_columns[output["name"]]
+            column = c[0]
+            monitor = c[1]
+            if monitor.output_lock.acquire():
+                monitor.output += output["output"]
+                monitor.output_lock.release()
+            column.set_text(monitor.output)
+            mainloop.draw_screen()
+    update_thread = threading.Thread(target=wait_for_values,
+                                     args=(monitor_columns,))
+    update_thread.start()
+
+    mainloop.run()
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -130,9 +211,5 @@ if __name__ == '__main__':
     close_queue = Queue()
     monitors = run_monitors(args.endpoint, args.verbose, q, close_queue)
 
-    try:
-        wait_for_output(q)
-    except KeyboardInterrupt:
-        pass
-    finally:
-        close_monitors(close_queue, monitors)
+    ui(monitors)
+    close_monitors(close_queue, monitors)
