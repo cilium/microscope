@@ -14,9 +14,11 @@ from kubernetes.stream import stream
 import urwid
 import urwid.raw_display
 
+
 # we are ignoring sigint in monitor processes as they are closed via queue
 def sigint_in_monitor(signum, frame):
     pass
+
 
 class Monitor:
     def __init__(self,
@@ -38,10 +40,11 @@ class Monitor:
         self.output = pod_name + "\n"
         self.output_lock = threading.Semaphore()
 
+
 def connect_monitor(m: Monitor):
     try:
         resp = m.api.read_namespaced_pod(name=m.pod_name,
-                                       namespace=m.namespace)
+                                         namespace=m.namespace)
     except ApiException as e:
         if e.status != 404:
             print('Unknown error: %s' % e)
@@ -85,6 +88,7 @@ def connect_monitor(m: Monitor):
     m.close_queue.cancel_join_thread()
     m.queue.cancel_join_thread()
 
+
 def run_monitors(endpoint: int, verbose: bool, queue: Queue,
                  close_queue: Queue) -> List[Monitor]:
 
@@ -98,7 +102,7 @@ def run_monitors(endpoint: int, verbose: bool, queue: Queue,
     try:
         pods = api.list_namespaced_pod(namespace,
                                        label_selector='k8s-app=cilium')
-    except APIException as e:
+    except ApiException as e:
         print('could not list Cilium pods: %s\n' % e)
         sys.exit(1)
 
@@ -113,11 +117,13 @@ def run_monitors(endpoint: int, verbose: bool, queue: Queue,
 
     return monitors
 
+
 def close_monitors(close_queue: Queue, monitors: List[Monitor]):
     print('closing')
     close_queue.put('close')
     for m in monitors:
         m.process.join()
+
 
 def ui(monitors):
     monitor_columns = {m.pod_name: (urwid.Text(m.output), m)
@@ -126,8 +132,6 @@ def ui(monitors):
     text_header = (u"Cilium Monitor Sink."
                    u"UP / DOWN / PAGE UP / PAGE DOWN scroll.  F8 exits.")
 
-    blank = urwid.Divider()
-    text1 = urwid.Text("troolololololo")
     listbox_content = [
         urwid.Columns([c[0] for c in monitor_columns.values()],
                       5, min_width=20),
@@ -138,18 +142,17 @@ def ui(monitors):
     frame = urwid.Frame(urwid.AttrWrap(listbox, 'body'), header=header)
 
     palette = [
-        ('body','black','light gray', 'standout'),
-        ('reverse','light gray','black'),
-        ('header','white','dark red', 'bold'),
-        ('important','dark blue','light gray',('standout','underline')),
-        ('editfc','white', 'dark blue', 'bold'),
-        ('editbx','light gray', 'dark blue'),
-        ('editcp','black','light gray', 'standout'),
-        ('bright','dark gray','light gray', ('bold','standout')),
-        ('buttn','black','dark cyan'),
-        ('buttnf','white','dark blue','bold'),
+        ('body', 'black', 'light gray', 'standout'),
+        ('reverse', 'light gray', 'black'),
+        ('header', 'white', 'dark red', 'bold'),
+        ('important', 'dark blue', 'light gray', ('standout', 'underline')),
+        ('editfc', 'white', 'dark blue', 'bold'),
+        ('editbx', 'light gray', 'dark blue'),
+        ('editcp', 'black', 'light gray', 'standout'),
+        ('bright', 'dark gray', 'light gray', ('bold', 'standout')),
+        ('buttn', 'black', 'dark cyan'),
+        ('buttnf', 'white', 'dark blue', 'bold'),
         ]
-
 
     screen = urwid.raw_display.Screen()
 
@@ -171,9 +174,8 @@ def ui(monitors):
         if key == 's':
             dump_data()
 
-
     mainloop = urwid.MainLoop(frame, palette, screen,
-        unhandled_input=unhandled)
+                              unhandled_input=unhandled)
 
     def wait_for_values(monitor_columns):
         m = next(iter(monitor_columns.values()))
@@ -182,7 +184,7 @@ def ui(monitors):
 
         while(close_queue.empty()):
             try:
-                output = q.get(True, 5)
+                output = queue.get(True, 5)
             except Queue.Empty:
                 continue
 
