@@ -3,6 +3,7 @@ import signal
 import argparse
 import sys
 from multiprocessing import Process, Queue
+import queue as queuemodule
 import threading
 from typing import List
 
@@ -185,7 +186,7 @@ def ui(monitors):
         while(close_queue.empty()):
             try:
                 output = queue.get(True, 5)
-            except Queue.Empty:
+            except queuemodule.Empty:
                 continue
 
             c = monitor_columns[output["name"]]
