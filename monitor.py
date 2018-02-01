@@ -204,7 +204,7 @@ def ui(monitors):
     mainloop.run()
 
 
-if __name__ == '__main__':
+def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--endpoint', type=int, help='endpoint id', default=0)
     parser.add_argument('--verbose', type=bool, default=False)
@@ -216,3 +216,7 @@ if __name__ == '__main__':
 
     ui(monitors)
     close_monitors(close_queue, monitors)
+
+
+if __name__ == '__main__':
+    main()
