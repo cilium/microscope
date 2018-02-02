@@ -1,17 +1,19 @@
 import time
+import json
 import signal
 import argparse
 import sys
 from multiprocessing import Process, Queue
 import queue as queuemodule
 import threading
-from typing import List
+from typing import List, Set
 
 from kubernetes import config
 from kubernetes.client import Configuration
 from kubernetes.client.apis import core_v1_api
 from kubernetes.client.rest import ApiException
 from kubernetes.stream import stream
+
 import urwid
 import urwid.raw_display
 
@@ -28,14 +30,14 @@ class Monitor:
                  queue: Queue,
                  close_queue: Queue,
                  api: core_v1_api.CoreV1Api,
-                 endpoint: int,
+                 endpoints: Set[int],
                  verbose: bool):
         self.pod_name = pod_name
         self.namespace = namespace
         self.queue = queue
         self.close_queue = close_queue
         self.api = api
-        self.endpoint = endpoint
+        self.endpoints = endpoints
         self.verbose = verbose
         self.process = Process(target=connect_monitor, args=(self,))
         self.output = pod_name + "\n"
@@ -51,8 +53,7 @@ def connect_monitor(m: Monitor):
             print('Unknown error: %s' % e)
             exit(1)
 
-
-# calling exec and wait for response.
+    # calling exec and wait for response.
     exec_command = [
         'cilium',
         'monitor']
@@ -60,9 +61,10 @@ def connect_monitor(m: Monitor):
     if m.verbose:
         exec_command.append('-v')
 
-    if m.endpoint:
-        exec_command.append('--related-to')
-        exec_command.append(str(m.endpoint))
+    if m.endpoints:
+        for e in m.endpoints:
+            exec_command.append('--related-to')
+            exec_command.append(str(e))
 
     resp = stream(m.api.connect_get_namespaced_pod_exec, m.pod_name,
                   m.namespace,
@@ -90,7 +92,8 @@ def connect_monitor(m: Monitor):
     m.queue.cancel_join_thread()
 
 
-def run_monitors(endpoint: int, verbose: bool, queue: Queue,
+def run_monitors(verbose: bool, selectors: List[str],
+                 pod_names: List[str], endpoints: List[int], queue: Queue,
                  close_queue: Queue) -> List[Monitor]:
 
     try:
@@ -101,6 +104,7 @@ def run_monitors(endpoint: int, verbose: bool, queue: Queue,
     c = Configuration()
     c.assert_hostname = False
     Configuration.set_default(c)
+    # TODO: move these two to new Monitors class
     api = core_v1_api.CoreV1Api()
     namespace = 'kube-system'
 
@@ -113,8 +117,13 @@ def run_monitors(endpoint: int, verbose: bool, queue: Queue,
 
     names = [pod.metadata.name for pod in pods.items]
 
+    ids = retrieve_endpoint_ids(api, selectors, pod_names, names)
+    ids.update(endpoints)
+
+    print(ids)
+
     monitors = [
-        Monitor(name, namespace, queue, close_queue, api, endpoint, verbose)
+        Monitor(name, namespace, queue, close_queue, api, ids, verbose)
         for name in names]
 
     for m in monitors:
@@ -130,12 +139,52 @@ def close_monitors(close_queue: Queue, monitors: List[Monitor]):
         m.process.join()
 
 
-def ui(monitors):
+def retrieve_endpoint_ids(api: core_v1_api.CoreV1Api, selectors: List[str],
+                          pod_names: List[str], node_names: List[str]
+                          ) -> Set[int]:
+    ids = set()
+    for node in node_names:
+        exec_command = ['cilium', 'endpoint', 'list', '-o', 'json']
+        resp = stream(api.connect_get_namespaced_pod_exec, node, 'kube-system',
+                      command=exec_command,
+                      stderr=False, stdin=False,
+                      stdout=True, tty=False, _preload_content=False,
+                      _return_http_data_only=True)
+        output = ""
+
+        # _preload_content causes json to be malformed,
+        # so we need to load raw data from websocket
+        while resp.is_open():
+            resp.update(timeout=1)
+            if resp.peek_stdout():
+                output += resp.read_stdout()
+            try:
+                data = json.loads(output)
+                resp.close()
+            except ValueError:
+                continue
+
+        nameMatch = {endpoint['id'] for endpoint in data
+                     if endpoint['pod-name'] in pod_names}
+
+        labelsMatch = {endpoint['id'] for endpoint in data
+                       if any(
+                           [any([selector in label for selector in selectors])
+                            for label
+                            in endpoint['labels']['orchestration-identity']]
+                       )}
+        ids.update(nameMatch, labelsMatch)
+
+    return ids
+
+
+def ui(monitors: List[Monitor]):
     monitor_columns = {m.pod_name: (urwid.Text(m.output), m)
                        for m in monitors}
 
     text_header = (u"Cilium Monitor Sink."
-                   u"UP / DOWN / PAGE UP / PAGE DOWN scroll.  F8 exits.")
+                   u"UP / DOWN / PAGE UP / PAGE DOWN scroll. F8 exits. "
+                   u"s dumps nodes output to disk")
 
     listbox_content = [
         urwid.Columns([c[0] for c in monitor_columns.values()],
@@ -210,13 +259,23 @@ def ui(monitors):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--endpoint', type=int, help='endpoint id', default=0)
     parser.add_argument('--verbose', type=bool, default=False)
+    parser.add_argument('--selector', action='append', default=[],
+                        help='k8s equality label selectors for pods which '
+                        'monitor should listen to. each selector will '
+                        'retrieve its own set of pods. '
+                        'Format is "label-name=label-value"')
+    parser.add_argument('--pod', action='append', default=[],
+                        help='pod names in form of "namespace:pod-name"')
+    parser.add_argument('--endpoint', action='append', type=int, default=[],
+                        help='Cilium endpoint ids')
+
     args = parser.parse_args()
 
     q = Queue()
     close_queue = Queue()
-    monitors = run_monitors(args.endpoint, args.verbose, q, close_queue)
+    monitors = run_monitors(args.verbose, args.selector,
+                            args.pod, args.endpoint, q, close_queue)
 
     ui(monitors)
     close_monitors(close_queue, monitors)
