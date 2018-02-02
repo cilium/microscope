@@ -93,7 +93,11 @@ def connect_monitor(m: Monitor):
 def run_monitors(endpoint: int, verbose: bool, queue: Queue,
                  close_queue: Queue) -> List[Monitor]:
 
-    config.load_kube_config()
+    try:
+        config.load_kube_config()
+    except FileNotFoundError:
+        config.load_incluster_config()
+
     c = Configuration()
     c.assert_hostname = False
     Configuration.set_default(c)

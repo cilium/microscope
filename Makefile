@@ -10,3 +10,6 @@ all:
 
 clean:
 	rm -rf dist
+
+docker:
+	docker build -t cilium/monitor-mux .
