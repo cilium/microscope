@@ -1,12 +1,15 @@
+distpath = dist/microscope
+pyzpath = dist/microscope.pyz
+
 all:
-	mkdir -p dist/monitor
-	pip install -r requirements.txt -t dist/monitor
-	cp monitor.py dist/monitor
-	python -m zipapp dist/monitor -m "monitor:main"
+	mkdir -p $distpath
+	pip install -r requirements.txt -t $(distpath)
+	cp -r microscope $(distpath)
+	python -m zipapp $(distpath) -m "microscope.microscope:main"
 	#add shebang
-	echo '#!/usr/bin/env python' | cat - dist/monitor.pyz > dist/tmp
-	mv dist/tmp dist/monitor.pyz
-	chmod +x dist/monitor.pyz
+	echo '#!/usr/bin/env python' | cat - $(pyzpath) > dist/tmp
+	mv dist/tmp $(pyzpath)
+	chmod +x $(pyzpath)
 
 clean:
 	rm -rf dist
