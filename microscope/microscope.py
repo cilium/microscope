@@ -1,20 +1,12 @@
 import argparse
 from multiprocessing import Queue
-from typing import List
 
 from kubernetes import config
 from kubernetes.client import Configuration
 from kubernetes.client.apis import core_v1_api
 
-from monitor import Monitor, MonitorRunner
+from monitor import MonitorRunner
 from ui import ui
-
-
-def close_monitors(close_queue: Queue, monitors: List[Monitor]):
-    print('closing')
-    close_queue.put('close')
-    for m in monitors:
-        m.process.join()
 
 
 def main():
@@ -50,7 +42,7 @@ def main():
                args.pod, args.endpoint)
 
     ui(runner)
-    close_monitors(close_queue, runner.monitors)
+    runner.finish()
 
 
 if __name__ == '__main__':

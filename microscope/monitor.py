@@ -164,3 +164,9 @@ class MonitorRunner:
             ids.update(nameMatch, labelsMatch)
 
         return ids
+
+    def finish(self):
+        print('closing')
+        self.close_queue.put('close')
+        for m in self.monitors:
+            m.process.join()
