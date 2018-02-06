@@ -88,13 +88,12 @@ class Monitor:
 
 
 class MonitorRunner:
-    def __init__(self, namespace, api, data_queue: Queue,
-                 close_queue: Queue):
+    def __init__(self, namespace, api):
         self.namespace = namespace
         self.api = api
         self.monitors = []
-        self.data_queue = data_queue
-        self.close_queue = close_queue
+        self.data_queue = Queue()
+        self.close_queue = Queue()
 
     def run(self, verbose: bool, selectors: List[str],
             pod_names: List[str], endpoints: List[int]):

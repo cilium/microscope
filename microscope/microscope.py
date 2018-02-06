@@ -1,5 +1,4 @@
 import argparse
-from multiprocessing import Queue
 
 from kubernetes import config
 from kubernetes.client import Configuration
@@ -24,9 +23,6 @@ def main():
 
     args = parser.parse_args()
 
-    q = Queue()
-    close_queue = Queue()
-
     try:
         config.load_kube_config()
     except FileNotFoundError:
@@ -36,7 +32,7 @@ def main():
     c.assert_hostname = False
     Configuration.set_default(c)
     api = core_v1_api.CoreV1Api()
-    runner = MonitorRunner('kube-system', api, q, close_queue)
+    runner = MonitorRunner('kube-system', api)
 
     runner.run(args.verbose, args.selector,
                args.pod, args.endpoint)
