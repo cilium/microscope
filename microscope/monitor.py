@@ -96,9 +96,8 @@ class MonitorRunner:
         self.close_queue = Queue()
 
     def run(self, verbose: bool, selectors: List[str],
-            pod_names: List[str], endpoints: List[int]):
+            pod_names: List[str], endpoints: List[int], nodes: List[str]):
 
-        # TODO: move these two to new Monitors class
         api = core_v1_api.CoreV1Api()
         namespace = 'kube-system'
 
@@ -109,7 +108,15 @@ class MonitorRunner:
             print('could not list Cilium pods: %s\n' % e)
             sys.exit(1)
 
-        names = [pod.metadata.name for pod in pods.items]
+        if nodes:
+            names = [pod.metadata.name for pod in pods.items
+                     if pod.metadata.name in nodes]
+        else:
+            names = [pod.metadata.name for pod in pods.items]
+
+        if not names:
+            raise ValueError('No Cilium nodes in cluster match provided names'
+                             ', or Cilium is not deployed')
 
         ids = self.retrieve_endpoint_ids(selectors, pod_names, names)
         ids.update(endpoints)

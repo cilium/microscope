@@ -15,11 +15,15 @@ def main():
                         help='k8s equality label selectors for pods which '
                         'monitor should listen to. each selector will '
                         'retrieve its own set of pods. '
-                        'Format is "label-name=label-value"')
+                        'Format is "label-name=label-value" '
+                        'Can specify multiple.')
     parser.add_argument('--pod', action='append', default=[],
-                        help='pod names in form of "namespace:pod-name"')
+                        help='pod names in form of "namespace:pod-name" '
+                        'Can specify multiple.')
     parser.add_argument('--endpoint', action='append', type=int, default=[],
-                        help='Cilium endpoint ids')
+                        help='Cilium endpoint ids. Can specify multiple.')
+    parser.add_argument('--node', action='append', default=[],
+                        help='Cilium pod names. Can specify multiple.')
 
     args = parser.parse_args()
 
@@ -34,8 +38,13 @@ def main():
     api = core_v1_api.CoreV1Api()
     runner = MonitorRunner('kube-system', api)
 
-    runner.run(args.verbose, args.selector,
-               args.pod, args.endpoint)
+    try:
+        runner.run(args.verbose, args.selector,
+                   args.pod, args.endpoint, args.node)
+    except ValueError as e:
+        print(e)
+        runner.finish()
+        return
 
     ui(runner)
     runner.finish()
