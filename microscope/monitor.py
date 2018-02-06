@@ -131,45 +131,60 @@ class MonitorRunner:
 
     def retrieve_endpoint_ids(self, selectors: List[str],
                               pod_names: List[str],
-                              node_names: List[str]
+                              node_names: List[str]):
+        getters = [Process(target=self.get_node_endpoint_ids,
+                           args=(selectors, pod_names, node))
+                   for node in node_names]
+
+        for p in getters:
+            p.start()
+
+        id_sets = [self.data_queue.get() for _ in getters]
+
+        for p in getters:
+            p.join()
+
+        result = set()
+        result.update(*id_sets)
+        return result
+
+    def get_node_endpoint_ids(self, selectors, pod_names, node: str
                               ) -> Set[int]:
-        ids = set()
-        for node in node_names:
-            exec_command = ['cilium', 'endpoint', 'list', '-o', 'json']
-            resp = stream(self.api.connect_get_namespaced_pod_exec, node,
-                          self.namespace,
-                          command=exec_command,
-                          stderr=False, stdin=False,
-                          stdout=True, tty=False, _preload_content=False,
-                          _return_http_data_only=True)
-            output = ""
+        exec_command = ['cilium', 'endpoint', 'list', '-o', 'json']
+        resp = stream(self.api.connect_get_namespaced_pod_exec, node,
+                      self.namespace,
+                      command=exec_command,
+                      stderr=False, stdin=False,
+                      stdout=True, tty=False, _preload_content=False,
+                      _return_http_data_only=True)
+        output = ""
 
-            # _preload_content causes json to be malformed,
-            # so we need to load raw data from websocket
-            while resp.is_open():
-                resp.update(timeout=1)
-                if resp.peek_stdout():
-                    output += resp.read_stdout()
-                try:
-                    data = json.loads(output)
-                    resp.close()
-                except ValueError:
-                    continue
+        # _preload_content causes json to be malformed,
+        # so we need to load raw data from websocket
+        while resp.is_open():
+            resp.update(timeout=1)
+            if resp.peek_stdout():
+                output += resp.read_stdout()
+            try:
+                data = json.loads(output)
+                resp.close()
+            except ValueError:
+                continue
 
-            nameMatch = {endpoint['id'] for endpoint in data
-                         if endpoint['pod-name'] in pod_names}
+        ids = {endpoint['id'] for endpoint in data
+               if endpoint['pod-name'] in pod_names}
 
-            labelsMatch = {endpoint['id'] for endpoint in data
-                           if any([
-                               any(
-                                   [selector in label
-                                    for selector in selectors])
-                               for label
-                               in endpoint['labels']['orchestration-identity']
-                           ])}
-            ids.update(nameMatch, labelsMatch)
+        labelsMatch = {endpoint['id'] for endpoint in data
+                       if any([
+                           any(
+                               [selector in label
+                                for selector in selectors])
+                           for label
+                           in endpoint['labels']['orchestration-identity']
+                       ])}
+        ids.update(labelsMatch)
 
-        return ids
+        self.data_queue.put(ids)
 
     def finish(self):
         print('closing')
