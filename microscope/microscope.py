@@ -79,13 +79,11 @@ def main():
 
     try:
         runner.run(monitor_args, args.node)
-    except ValueError as e:
-        print(e)
+        ui(runner)
+    except KeyboardInterrupt as e:
+        pass
+    finally:
         runner.finish()
-        return
-
-    ui(runner)
-    runner.finish()
 
 
 if __name__ == '__main__':
