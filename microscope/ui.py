@@ -12,7 +12,7 @@ def ui(runner: MonitorRunner):
     monitor_columns = {m.pod_name: (urwid.Text(m.output), m)
                        for m in runner.monitors}
 
-    text_header = (u"Cilium Monitor Sink."
+    text_header = (u"Cilium Microscope."
                    u"UP / DOWN / PAGE UP / PAGE DOWN scroll. F8 exits. "
                    u"s dumps nodes output to disk")
 
