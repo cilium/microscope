@@ -1,4 +1,4 @@
-from typing import Set, List
+from typing import List, Set
 import json
 import sys
 import signal
@@ -142,9 +142,22 @@ class MonitorRunner:
 
     def get_monitor_command(self, args: MonitorArgs, names: List[str]
                             ) -> List[str]:
-        ids = self.retrieve_endpoint_ids(args.related_selectors,
-                                         args.related_pods, names)
-        ids.update(args.related_endpoints)
+        endpoint_data = self.retrieve_endpoint_data(names)
+
+        related_ids = self.retrieve_endpoint_ids(endpoint_data,
+                                                 args.related_selectors,
+                                                 args.related_pods)
+        related_ids.update(args.related_endpoints)
+
+        to_ids = self.retrieve_endpoint_ids(endpoint_data,
+                                            args.to_selectors,
+                                            args.to_pods)
+        to_ids.update(args.to_endpoints)
+
+        from_ids = self.retrieve_endpoint_ids(endpoint_data,
+                                              args.from_selectors,
+                                              args.from_pods)
+        from_ids.update(args.from_endpoints)
 
         exec_command = [
             'cilium',
@@ -153,25 +166,34 @@ class MonitorRunner:
         if args.verbose:
             exec_command.append('-v')
 
-        if ids:
-            for e in ids:
+        if related_ids:
+            for e in related_ids:
                 exec_command.append('--related-to')
                 exec_command.append(str(e))
 
+        if to_ids:
+            for e in to_ids:
+                exec_command.append('--to')
+                exec_command.append(str(e))
+
+        if from_ids:
+            for e in from_ids:
+                exec_command.append('--from')
+                exec_command.append(str(e))
+
+        print(exec_command)
         return exec_command
 
-    def retrieve_endpoint_ids(self, selectors: List[str],
-                              pod_names: List[str],
-                              node_names: List[str]):
-        getters = [Process(target=self.get_node_endpoint_ids,
-                           args=(selectors, pod_names, node))
+    def retrieve_endpoint_data(self, node_names: List[str]) -> Set[int]:
+        getters = [Process(target=self.get_node_endpoint_data,
+                           args=(node,))
                    for node in node_names]
 
         for p in getters:
             p.start()
 
         try:
-            id_sets = [self.data_queue.get(timeout=10) for _ in getters]
+            outputs = [self.data_queue.get(timeout=10) for _ in getters]
         except queuemodule.Empty as e:
             for p in getters:
                 p.terminate()
@@ -180,12 +202,29 @@ class MonitorRunner:
         for p in getters:
             p.join()
 
-        result = set()
-        result.update(*id_sets)
-        return result
+        return outputs
 
-    def get_node_endpoint_ids(self, selectors, pod_names, node: str
-                              ) -> Set[int]:
+    def retrieve_endpoint_ids(self, endpoint_data, selectors: List[str],
+                              pod_names: List[str]) -> Set[int]:
+        ids = set()
+
+        for data in endpoint_data:
+            namesMatch = {endpoint['id'] for endpoint in data
+                          if endpoint['pod-name'] in pod_names}
+
+            labelsMatch = {endpoint['id'] for endpoint in data
+                           if any([
+                               any(
+                                   [selector in label
+                                    for selector in selectors])
+                               for label
+                               in endpoint['labels']['orchestration-identity']
+                           ])}
+            ids.update(namesMatch, labelsMatch)
+
+        return ids
+
+    def get_node_endpoint_data(self, node: str):
         exec_command = ['cilium', 'endpoint', 'list', '-o', 'json']
         resp = stream(self.api.connect_get_namespaced_pod_exec, node,
                       self.namespace,
@@ -207,20 +246,7 @@ class MonitorRunner:
             except ValueError:
                 continue
 
-        ids = {endpoint['id'] for endpoint in data
-               if endpoint['pod-name'] in pod_names}
-
-        labelsMatch = {endpoint['id'] for endpoint in data
-                       if any([
-                           any(
-                               [selector in label
-                                for selector in selectors])
-                           for label
-                           in endpoint['labels']['orchestration-identity']
-                       ])}
-        ids.update(labelsMatch)
-
-        self.data_queue.put(ids)
+        self.data_queue.put(data)
 
     def finish(self):
         print('closing')
