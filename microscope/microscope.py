@@ -21,7 +21,8 @@ def main():
                         'Format is "label-name=label-value" '
                         'Can specify multiple.')
     parser.add_argument('--pod', action='append', default=[],
-                        help='pod names in form of "namespace:pod-name" '
+                        help='pod names in form of "namespace:pod-name", '
+                        'if there is no namespace, default is assumed. '
                         'Can specify multiple.')
     parser.add_argument('--endpoint', action='append', type=int, default=[],
                         help='Cilium endpoint ids. Can specify multiple.')
@@ -34,7 +35,8 @@ def main():
                         'Format is "label-name=label-value" '
                         'Can specify multiple.')
     parser.add_argument('--to-pod', action='append', default=[],
-                        help='pod names in form of "namespace:pod-name" '
+                        help='pod names in form of "namespace:pod-name", '
+                        'if there is no namespace, default is assumed. '
                         'Matches events that go to specified pods. '
                         'Can specify multiple.')
     parser.add_argument('--to-endpoint', action='append', type=int, default=[],
@@ -50,7 +52,8 @@ def main():
                         'Format is "label-name=label-value" '
                         'Can specify multiple.')
     parser.add_argument('--from-pod', action='append', default=[],
-                        help='pod names in form of "namespace:pod-name" '
+                        help='pod names in form of "namespace:pod-name", '
+                        'if there is no namespace, default is assumed. '
                         'Matches events that come from specified pods. '
                         'Can specify multiple.')
     parser.add_argument('--from-endpoint', action='append', type=int,

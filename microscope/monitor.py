@@ -25,14 +25,22 @@ class MonitorArgs:
                  from_endpoints: List[int]):
         self.verbose = verbose
         self.related_selectors = related_selectors
-        self.related_pods = related_pods
+        self.related_pods = self.preprocess_pod_names(related_pods)
         self.related_endpoints = related_endpoints
         self.to_selectors = to_selectors
-        self.to_pods = to_pods
+        self.to_pods = self.preprocess_pod_names(to_pods)
         self.to_endpoints = to_endpoints
         self.from_selectors = from_selectors
-        self.from_pods = from_pods
+        self.from_pods = self.preprocess_pod_names(from_pods)
         self.from_endpoints = from_endpoints
+
+    def preprocess_pod_names(self, names: List[str]) -> List[str]:
+        def defaultize(name: str):
+            if ':' in name:
+                return name
+            else:
+                return 'default:' + name
+        return [defaultize(n) for n in names]
 
 
 # we are ignoring sigint in monitor processes as they are closed via queue
