@@ -10,6 +10,11 @@ from microscope.ui.ui import ui
 
 def main():
     parser = argparse.ArgumentParser()
+
+    parser.add_argument('--timeout-monitors', type=int, default=60,
+                        help='Will remove monitor output which did '
+                        'not update in last `timeout` seconds. '
+                        'Will not work on last monitor on screen.')
     parser.add_argument('--verbose', type=bool, default=False)
     parser.add_argument('--node', action='append', default=[],
                         help='Cilium pod names. Can specify multiple.')
@@ -82,7 +87,7 @@ def main():
 
     try:
         runner.run(monitor_args, args.node)
-        ui(runner)
+        ui(runner, args.timeout_monitors)
     except KeyboardInterrupt as e:
         pass
     finally:
