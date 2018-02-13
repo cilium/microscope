@@ -1,8 +1,8 @@
 distpath = dist/microscope
 pyzpath = dist/microscope.pyz
 
-build:
-	mkdir -p $distpath
+dist:
+	mkdir -p $(distpath)
 	pip install -r requirements.txt -t $(distpath)
 	cp microscope/*.py $(distpath)
 	python -m zipapp $(distpath) -m "microscope:main"
@@ -14,7 +14,7 @@ build:
 clean:
 	rm -rf dist
 
-docker: build
+docker: dist
 	docker build -t cilium/microscope .
 
 install:
