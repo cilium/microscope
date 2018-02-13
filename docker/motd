@@ -6,3 +6,15 @@
 |_| |_| |_|_|\___|_|  \___/|___/\___\___/| .__/ \___|
                                          | |
                                          |_|
+example usage:
+
+microscope --pod pod_name # shows all monitor events related to your pod in default namespace
+
+microscope --to-pod isolated:secret_pod # shows all packets going to pod in `isolated` namespace
+
+microscope --from-selector k8s-app=your-app # shows all packets sent by all pods with `k8s-app=your-app` label
+
+microscope --node cilium-xxxx # only show output from particular cilium node specified by its pod name
+
+full help:
+microscope -h
