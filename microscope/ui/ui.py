@@ -5,7 +5,7 @@ import queue as queuemodule
 import urwid
 import urwid.raw_display
 
-from .monitor import MonitorRunner
+from microscope.monitor.monitor import MonitorRunner
 
 
 def ui(runner: MonitorRunner):

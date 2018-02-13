@@ -4,8 +4,9 @@ pyzpath = dist/microscope.pyz
 dist:
 	mkdir -p $(distpath)
 	pip install -r requirements.txt -t $(distpath)
-	cp microscope/*.py $(distpath)
-	python -m zipapp $(distpath) -m "microscope:main"
+	cp -r microscope/ $(distpath)
+	cp microscope/__main__.py $(distpath)/__main__.py
+	python -m zipapp $(distpath)
 	#add shebang
 	echo '#!/usr/bin/env python' | cat - $(pyzpath) > dist/tmp
 	mv dist/tmp $(pyzpath)
