@@ -4,8 +4,8 @@ from kubernetes import config
 from kubernetes.client import Configuration
 from kubernetes.client.apis import core_v1_api
 
-from monitor import MonitorRunner, MonitorArgs
-from ui import ui
+from .monitor import MonitorRunner, MonitorArgs
+from .ui import ui
 
 
 def main():

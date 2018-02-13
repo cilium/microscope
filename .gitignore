@@ -1,4 +1,6 @@
 dist
+build
+microscope.egg-info
 
 cilium-*
 
