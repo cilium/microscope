@@ -1,15 +1,42 @@
 import time
 import threading
+from typing import Dict
 import queue as queuemodule
 
 import urwid
 import urwid.raw_display
 
-from microscope.monitor.monitor import MonitorRunner
+from microscope.monitor.monitor import MonitorRunner, Monitor
 
 
-def ui(runner: MonitorRunner):
-    monitor_columns = {m.pod_name: (urwid.Text(m.output), m)
+class MonitorColumn:
+    def __init__(self, monitor: Monitor):
+        self.monitor = monitor
+        self.widget = urwid.Text(monitor.output)
+        self.last_updated = time.time()
+
+    def set_text(self, text):
+        self.widget.set_text(text)
+        self.last_updated = time.time()
+
+
+def remove_stale_columns(content: urwid.MonitoredList,
+                         columns: Dict, timeout: int):
+    if len(columns) == 1:
+        return
+    now = time.time()
+    to_remove = []
+    for k, c in columns.items():
+        if now - c.last_updated > timeout:
+            content.remove((c.widget, ('weight', 1, False)))
+            to_remove.append(k)
+
+    for key in to_remove:
+        del columns[k]
+
+
+def ui(runner: MonitorRunner, empty_column_timeout: int):
+    monitor_columns = {m.pod_name: MonitorColumn(m)
                        for m in runner.monitors}
 
     text_header = (u"Cilium Microscope."
@@ -17,7 +44,7 @@ def ui(runner: MonitorRunner):
                    u"s dumps nodes output to disk")
 
     listbox_content = [
-        urwid.Columns([c[0] for c in monitor_columns.values()],
+        urwid.Columns([c.widget for c in monitor_columns.values()],
                       5, min_width=20),
     ]
 
@@ -55,8 +82,10 @@ def ui(runner: MonitorRunner):
     def unhandled(key):
         if key == 'f8':
             raise urwid.ExitMainLoop()
-        if key == 's':
+        elif key == 's':
             dump_data()
+        else:
+            runner.data_queue.put({})
 
     mainloop = urwid.MainLoop(frame, palette, screen,
                               unhandled_input=unhandled)
@@ -64,23 +93,27 @@ def ui(runner: MonitorRunner):
     def wait_for_values(monitor_columns, queue, close_queue):
         while(close_queue.empty()):
             try:
-                output = queue.get(True, 5)
+                output = queue.get(True, 1)
             except queuemodule.Empty:
                 continue
 
-            c = monitor_columns[output["name"]]
-            column = c[0]
-            monitor = c[1]
-            if monitor.output_lock.acquire():
-                monitor.output += output["output"]
-                monitor.output_lock.release()
-            column.set_text(monitor.output)
+            if ("name" in output and "output" in output
+                    and output["name"] in monitor_columns):
+                c = monitor_columns[output["name"]]
+                if c.monitor.output_lock.acquire():
+                    c.monitor.output += output["output"]
+                    c.set_text(c.monitor.output)
+                    c.monitor.output_lock.release()
+
+            remove_stale_columns(listbox_content[0].contents,
+                                 monitor_columns, empty_column_timeout)
             try:
                 mainloop.draw_screen()
             except AssertionError as e:
                 # this error is encountered when program is closing
                 # returning so it doesn't clutter the output
                 return
+
     update_thread = threading.Thread(target=wait_for_values,
                                      args=(monitor_columns,
                                            runner.data_queue,
