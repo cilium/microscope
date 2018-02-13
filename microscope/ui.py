@@ -75,7 +75,12 @@ def ui(runner: MonitorRunner):
                 monitor.output += output["output"]
                 monitor.output_lock.release()
             column.set_text(monitor.output)
-            mainloop.draw_screen()
+            try:
+                mainloop.draw_screen()
+            except AssertionError as e:
+                # this error is encountered when program is closing
+                # returning so it doesn't clutter the output
+                return
     update_thread = threading.Thread(target=wait_for_values,
                                      args=(monitor_columns,
                                            runner.data_queue,
