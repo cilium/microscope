@@ -18,6 +18,11 @@ def main():
     parser.add_argument('--verbose', action='store_true', default=False)
     parser.add_argument('--hex', action='store_true', default=False)
 
+    # taken from github.com/cilium/cilium/cmd/monitor.go
+    type_choices = ['drop', 'debug', 'capture', 'trace']
+    parser.add_argument('--type', action='append', default=[],
+                        choices=type_choices)
+
     parser.add_argument('--node', action='append', default=[],
                         help='Cilium pod names. Can specify multiple.')
 
@@ -85,7 +90,7 @@ def main():
     monitor_args = MonitorArgs(args.verbose, args.hex, args.selector, args.pod,
                                args.endpoint, args.to_selector, args.to_pod,
                                args.to_endpoint, args.from_selector,
-                               args.from_pod, args.from_endpoint)
+                               args.from_pod, args.from_endpoint, args.type)
 
     try:
         runner.run(monitor_args, args.node)

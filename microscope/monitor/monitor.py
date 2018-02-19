@@ -23,7 +23,8 @@ class MonitorArgs:
                  to_endpoints: List[int],
                  from_selectors: List[str],
                  from_pods: List[str],
-                 from_endpoints: List[int]):
+                 from_endpoints: List[int],
+                 types: List[str]):
         self.verbose = verbose
         self.hex = hex
         self.related_selectors = related_selectors
@@ -35,6 +36,7 @@ class MonitorArgs:
         self.from_selectors = from_selectors
         self.from_pods = self.preprocess_pod_names(from_pods)
         self.from_endpoints = from_endpoints
+        self.types = types
 
     def preprocess_pod_names(self, names: List[str]) -> List[str]:
         def defaultize(name: str):
@@ -195,6 +197,11 @@ class MonitorRunner:
             for e in from_ids:
                 exec_command.append('--from')
                 exec_command.append(str(e))
+
+        if args.types:
+            for t in args.types:
+                exec_command.append('--type')
+                exec_command.append(t)
 
         print(exec_command)
         return exec_command
