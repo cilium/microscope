@@ -15,7 +15,9 @@ def main():
                         help='Will remove monitor output which did '
                         'not update in last `timeout` seconds. '
                         'Will not work on last monitor on screen.')
-    parser.add_argument('--verbose', type=bool, default=False)
+    parser.add_argument('--verbose', action='store_true', default=False)
+    parser.add_argument('--hex', action='store_true', default=False)
+
     parser.add_argument('--node', action='append', default=[],
                         help='Cilium pod names. Can specify multiple.')
 
@@ -80,7 +82,7 @@ def main():
     api = core_v1_api.CoreV1Api()
     runner = MonitorRunner('kube-system', api)
 
-    monitor_args = MonitorArgs(args.verbose, args.selector, args.pod,
+    monitor_args = MonitorArgs(args.verbose, args.hex, args.selector, args.pod,
                                args.endpoint, args.to_selector, args.to_pod,
                                args.to_endpoint, args.from_selector,
                                args.from_pod, args.from_endpoint)

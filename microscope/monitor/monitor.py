@@ -14,6 +14,7 @@ from kubernetes.stream import stream
 class MonitorArgs:
     def __init__(self,
                  verbose: bool,
+                 hex: bool,
                  related_selectors: List[str],
                  related_pods: List[str],
                  related_endpoints: List[int],
@@ -24,6 +25,7 @@ class MonitorArgs:
                  from_pods: List[str],
                  from_endpoints: List[int]):
         self.verbose = verbose
+        self.hex = hex
         self.related_selectors = related_selectors
         self.related_pods = self.preprocess_pod_names(related_pods)
         self.related_endpoints = related_endpoints
@@ -173,6 +175,11 @@ class MonitorRunner:
 
         if args.verbose:
             exec_command.append('-v')
+
+        if args.hex:
+            if '-v' not in exec_command:
+                exec_command.append('-v')
+            exec_command.append('--hex')
 
         if related_ids:
             for e in related_ids:
