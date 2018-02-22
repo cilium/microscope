@@ -41,15 +41,14 @@ def ui(runner: MonitorRunner, empty_column_timeout: int):
 
     text_header = (u"Cilium Microscope."
                    u"UP / DOWN / PAGE UP / PAGE DOWN scroll. F8 exits. "
-                   u"s dumps nodes output to disk")
+                   u"s dumps nodes output to disk. LEFT / RIGHT to switch "
+                   u"columns.")
 
-    listbox_content = [
-        urwid.Columns([c.widget for c in monitor_columns.values()],
-                      5, min_width=20),
-    ]
+    columns = urwid.Columns([c.widget for c in monitor_columns.values()],
+                            5, min_width=20)
 
     header = urwid.AttrWrap(urwid.Text(text_header), 'header')
-    listbox = urwid.ListBox(urwid.SimpleListWalker(listbox_content))
+    listbox = urwid.ListBox(urwid.SimpleListWalker([columns]))
     frame = urwid.Frame(urwid.AttrWrap(listbox, 'body'), header=header)
 
     palette = [
@@ -84,6 +83,12 @@ def ui(runner: MonitorRunner, empty_column_timeout: int):
             raise urwid.ExitMainLoop()
         elif key == 's':
             dump_data()
+        elif key == 'right':
+            columns.focus_position = ((columns.focus_position + 1)
+                                      % len(columns.contents))
+        elif key == 'left':
+            columns.focus_position = ((columns.focus_position - 1)
+                                      % len(columns.contents))
         else:
             runner.data_queue.put({})
 
@@ -105,7 +110,7 @@ def ui(runner: MonitorRunner, empty_column_timeout: int):
                     c.set_text(c.monitor.output)
                     c.monitor.output_lock.release()
 
-            remove_stale_columns(listbox_content[0].contents,
+            remove_stale_columns(columns.contents,
                                  monitor_columns, empty_column_timeout)
             try:
                 mainloop.draw_screen()
