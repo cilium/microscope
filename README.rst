@@ -19,10 +19,9 @@ Running microscope in your Kubernetes cluster
 Running microscope locally
 --------------------------
 
-To run ``microscope`` locally, you need to have Python 3 installed. Using virtualenv is recommended, but not necessary.
+To run ``microscope`` locally, you need to have Python 3.5 or newer installed. Using virtualenv is recommended, but not necessary.
 
-To install all dependencies run ``pip install -r requirements.txt``.
-After dependencies are installed you should be able to run ``python3 microscope/microscope.py``
+``microscope`` is available as a package in PyPI, so all you need to do is run ``pip install cilium-microscope``. ``microscope`` executable should be available in your path.
 
 Alternatively you can run ``make`` to build self-contained Python archive which will container all dependencies and requires only Python to run.
 
