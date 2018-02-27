@@ -7,7 +7,7 @@ import uuid
 from setuptools import setup
 from pip.req import parse_requirements
 
-version = "0.1"
+version = "0.1.4"
 
 
 with io.open('README.rst', 'r', encoding='utf-8') as readme_file:
@@ -21,7 +21,7 @@ install_reqs = parse_requirements('requirements.txt', session=uuid.uuid1())
 requirements = [str(req.req) for req in install_reqs]
 
 setup(
-    name='microscope',
+    name='cilium-microscope',
     version=version,
     description=('An urwid-based interface for watching '
                  '`cilium monitor` events across your cluster'),
@@ -34,9 +34,10 @@ setup(
     ],
     entry_points={
         'console_scripts': [
-            'micro = microscope.microscope:main',
+            'microscope = microscope.__main__:main',
         ]
     },
+    python_requires='>=3.5',
     include_package_data=True,
     install_requires=requirements,
     license='Apache 2.0',
@@ -47,10 +48,8 @@ setup(
         'Intended Audience :: Developers',
         'Intended Audience :: System Administrators',
         'Natural Language :: English',
-        'License :: OSI Approved :: Apache Software License'
+        'License :: OSI Approved :: Apache Software License',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.3',
-        'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: Implementation :: CPython',
