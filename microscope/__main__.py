@@ -74,6 +74,9 @@ def main():
                         'Matches events that come from specified endpoints. '
                         'Can specify multiple.')
 
+    parser.add_argument('--force-command', type=str, default="",
+                        help='Execute command as-provided in argument on '
+                        'all specified nodes and show output.')
     args = parser.parse_args()
 
     try:
@@ -93,7 +96,7 @@ def main():
                                args.from_pod, args.from_endpoint, args.type)
 
     try:
-        runner.run(monitor_args, args.node)
+        runner.run(monitor_args, args.node, args.force_command)
         ui(runner, args.timeout_monitors)
     except KeyboardInterrupt as e:
         pass
