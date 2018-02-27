@@ -121,7 +121,8 @@ class MonitorRunner:
         self.data_queue = Queue()
         self.close_queue = Queue()
 
-    def run(self, monitor_args: MonitorArgs, nodes: List[str]):
+    def run(self, monitor_args: MonitorArgs, nodes: List[str],
+            cmd_override: str):
 
         api = core_v1_api.CoreV1Api()
 
@@ -142,7 +143,10 @@ class MonitorRunner:
             raise ValueError('No Cilium nodes in cluster match provided names'
                              ', or Cilium is not deployed')
 
-        cmd = self.get_monitor_command(monitor_args, names)
+        if cmd_override:
+            cmd = cmd_override.split(" ")
+        else:
+            cmd = self.get_monitor_command(monitor_args, names)
 
         self.monitors = [
             Monitor(name, self.namespace, self.data_queue, self.close_queue,
