@@ -14,4 +14,6 @@ ENV ENV=/root/profile
 
 COPY --from=0 /usr/src/microscope/dist/microscope.pyz /bin/microscope
 
+WORKDIR /usr/src/microscope
+
 CMD [ "microscope" ]
