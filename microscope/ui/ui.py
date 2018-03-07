@@ -1,3 +1,4 @@
+import os
 import time
 import threading
 from typing import Dict
@@ -18,6 +19,9 @@ class MonitorColumn:
     def set_text(self, text):
         self.widget.set_text(text)
         self.last_updated = time.time()
+
+
+zoom = False
 
 
 def remove_stale_columns(content: urwid.MonitoredList,
@@ -42,7 +46,7 @@ def ui(runner: MonitorRunner, empty_column_timeout: int):
     text_header = (u"Cilium Microscope."
                    u"UP / DOWN / PAGE UP / PAGE DOWN scroll. F8 exits. "
                    u"s dumps nodes output to disk. LEFT / RIGHT to switch "
-                   u"columns.")
+                   u"columns. z to zoom into column. z again to disable zoom")
 
     columns = urwid.Columns([c.widget for c in monitor_columns.values()],
                             5, min_width=20)
@@ -79,6 +83,7 @@ def ui(runner: MonitorRunner, empty_column_timeout: int):
                 f.write(o)
 
     def unhandled(key):
+        global zoom
         if key == 'f8':
             raise urwid.ExitMainLoop()
         elif key == 's':
@@ -89,6 +94,17 @@ def ui(runner: MonitorRunner, empty_column_timeout: int):
         elif key == 'left':
             columns.focus_position = ((columns.focus_position - 1)
                                       % len(columns.contents))
+        elif key == 'z':
+            width = os.get_terminal_size().columns
+            if not zoom:
+                for k, v in enumerate(columns.contents):
+                    columns.contents[k] = (v[0], columns.options("given",
+                                                                 width))
+            else:
+                for k, v in enumerate(columns.contents):
+                    columns.contents[k] = (v[0], columns.options("weight", 1))
+
+            zoom = not zoom
         else:
             runner.data_queue.put({})
 
