@@ -139,6 +139,8 @@ def ui(runner: MonitorRunner, empty_column_timeout: int):
                                      args=(monitor_columns,
                                            runner.data_queue,
                                            runner.close_queue))
-    update_thread.start()
 
+    # hack to ensure that ssl errors log before mainloop.run call
+    time.sleep(3)
+    update_thread.start()
     mainloop.run()
