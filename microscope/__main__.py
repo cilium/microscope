@@ -77,6 +77,10 @@ def main():
     parser.add_argument('--force-command', type=str, default="",
                         help='Execute command as-provided in argument on '
                         'all specified nodes and show output.')
+
+    parser.add_argument('--cilium-namespace', type=str, default="kube-system",
+                        help='Specify namespace in which Cilium pods reside')
+
     args = parser.parse_args()
 
     try:
@@ -88,7 +92,7 @@ def main():
     c.assert_hostname = False
     Configuration.set_default(c)
     api = core_v1_api.CoreV1Api()
-    runner = MonitorRunner('kube-system', api)
+    runner = MonitorRunner(args.cilium_namespace, api)
 
     monitor_args = MonitorArgs(args.verbose, args.hex, args.selector, args.pod,
                                args.endpoint, args.to_selector, args.to_pod,
