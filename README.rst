@@ -13,7 +13,7 @@ Running microscope in your Kubernetes cluster
 
 ``kubectl run -i --tty microscope --image cilium/microscope --restart=Never -- sh`` will run a shell inside a pod in your cluster.
 
-``./microscope -h`` inside this shell will show ``microscope`` help.
+``microscope -h`` inside this shell will show ``microscope`` help.
 
 
 Running microscope locally
