@@ -85,7 +85,7 @@ class Monitor:
 
         resp = stream(self.api.connect_get_namespaced_pod_exec, self.pod_name,
                       self.namespace,
-                      command=self.cmd,
+                      command=["bash", "-c", " ".join(self.cmd)],
                       stderr=True, stdin=True,
                       stdout=True, tty=True,
                       _preload_content=False)
