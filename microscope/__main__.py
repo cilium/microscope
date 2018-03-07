@@ -81,6 +81,10 @@ def main():
     parser.add_argument('--cilium-namespace', type=str, default="kube-system",
                         help='Specify namespace in which Cilium pods reside')
 
+    parser.add_argument('--clear-monitors', action='store_true', default=False,
+                        help='Kill all `cilium monitor` on Cilium nodes. '
+                        'Helpful for debugging')
+
     args = parser.parse_args()
 
     try:
@@ -100,8 +104,14 @@ def main():
                                args.from_pod, args.from_endpoint, args.type)
 
     try:
-        runner.run(monitor_args, args.node, args.force_command)
-        ui(runner, args.timeout_monitors)
+        if args.clear_monitors:
+            cmd = "pkill -f \"cilium monitor\""
+        else:
+            cmd = args.force_command
+
+        runner.run(monitor_args, args.node, cmd)
+        if not args.clear_monitors:
+            ui(runner, args.timeout_monitors)
     except KeyboardInterrupt as e:
         pass
     finally:
