@@ -93,7 +93,7 @@ def ui(runner: MonitorRunner, empty_column_timeout: int):
             runner.data_queue.put({})
 
     mainloop = urwid.MainLoop(frame, palette, screen,
-                              unhandled_input=unhandled)
+                              unhandled_input=unhandled, handle_mouse=False)
 
     def wait_for_values(monitor_columns, queue, close_queue):
         while(close_queue.empty()):
