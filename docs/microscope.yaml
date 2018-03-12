@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: microscope
+  namespace: kube-system
+spec:
+  containers:
+  - args:
+    - sleep
+    - "1000"
+    image: cilium/microscope
+    imagePullPolicy: Always
+    name: microscope
