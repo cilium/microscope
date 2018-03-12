@@ -74,7 +74,7 @@ def main():
                         'Matches events that come from specified endpoints. '
                         'Can specify multiple.')
 
-    parser.add_argument('--force-command', type=str, default="",
+    parser.add_argument('--send-command', type=str, default="",
                         help='Execute command as-provided in argument on '
                         'all specified nodes and show output.')
 
@@ -107,7 +107,7 @@ def main():
         if args.clear_monitors:
             cmd = "pkill -f \"cilium monitor\""
         else:
-            cmd = args.force_command
+            cmd = args.send_command
 
         runner.run(monitor_args, args.node, cmd)
         if not args.clear_monitors:
