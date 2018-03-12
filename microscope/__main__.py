@@ -11,7 +11,7 @@ from microscope.ui.ui import ui
 def main():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--timeout-monitors', type=int, default=60,
+    parser.add_argument('--timeout-monitors', type=int, default=0,
                         help='Will remove monitor output which did '
                         'not update in last `timeout` seconds. '
                         'Will not work on last monitor on screen.')

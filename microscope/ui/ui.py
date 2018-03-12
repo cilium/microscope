@@ -26,7 +26,7 @@ zoom = False
 
 def remove_stale_columns(content: urwid.MonitoredList,
                          columns: Dict, timeout: int):
-    if len(columns) == 1:
+    if len(columns) == 1 or timeout == 0:
         return
     now = time.time()
     to_remove = []
