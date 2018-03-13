@@ -132,8 +132,9 @@ def ui(runner: MonitorRunner, empty_column_timeout: int):
                 mainloop.draw_screen()
             except AssertionError as e:
                 # this error is encountered when program is closing
-                # returning so it doesn't clutter the output
-                return
+                # or screen is not ready to draw
+                # continue so it doesn't clutter the output
+                continue
 
     update_thread = threading.Thread(target=wait_for_values,
                                      args=(monitor_columns,
@@ -144,3 +145,4 @@ def ui(runner: MonitorRunner, empty_column_timeout: int):
     time.sleep(3)
     update_thread.start()
     mainloop.run()
+    update_thread.join()
