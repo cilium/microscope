@@ -24,7 +24,9 @@ def main():
                         choices=type_choices)
 
     parser.add_argument('--node', action='append', default=[],
-                        help='Cilium pod names. Can specify multiple.')
+                        help='Specify which nodes monitor will be run on. '
+                        'Can match either by cilium pod names or k8s node '
+                        'names. Can specify multiple.')
 
     parser.add_argument('--selector', action='append', default=[],
                         help='k8s equality label selectors for pods which '

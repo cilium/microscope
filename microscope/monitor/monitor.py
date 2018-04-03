@@ -55,6 +55,7 @@ def sigint_in_monitor(signum, frame):
 class Monitor:
     def __init__(self,
                  pod_name: str,
+                 node_name: str,
                  namespace: str,
                  queue: Queue,
                  close_queue: Queue,
@@ -62,6 +63,7 @@ class Monitor:
                  cmd: List[str],
                  ):
         self.pod_name = pod_name
+        self.node_name = node_name
         self.namespace = namespace
         self.queue = queue
         self.close_queue = close_queue
@@ -69,7 +71,7 @@ class Monitor:
         self.cmd = cmd
 
         self.process = Process(target=self.connect)
-        self.output = pod_name + "\n"
+        self.output = node_name + "\n"
         self.output_lock = threading.Semaphore()
 
     def connect(self):
@@ -101,10 +103,12 @@ class Monitor:
             if resp.peek_stdout():
                 self.queue.put({
                     'name': self.pod_name,
+                    'node_name': self.node_name,
                     'output': resp.read_stdout()})
             if resp.peek_stderr():
                 self.queue.put({
                     'name': self.pod_name,
+                    'node_name': self.node_name,
                     'output': resp.read_stderr()})
 
         resp.close()
@@ -134,10 +138,15 @@ class MonitorRunner:
             sys.exit(1)
 
         if nodes:
-            names = [pod.metadata.name for pod in pods.items
-                     if pod.metadata.name in nodes]
+            names = [(pod.metadata.name, pod.spec.node_name)
+                     for pod in pods.items
+                     if
+                     pod.metadata.name in nodes
+                     or
+                     pod.spec.node_name in nodes]
         else:
-            names = [pod.metadata.name for pod in pods.items]
+            names = [(pod.metadata.name, pod.spec.node_name)
+                     for pod in pods.items]
 
         if not names:
             raise ValueError('No Cilium nodes in cluster match provided names'
@@ -146,11 +155,12 @@ class MonitorRunner:
         if cmd_override:
             cmd = cmd_override.split(" ")
         else:
-            cmd = self.get_monitor_command(monitor_args, names)
+            cmd = self.get_monitor_command(monitor_args,
+                                           [name[0] for name in names])
 
         self.monitors = [
-            Monitor(name, self.namespace, self.data_queue, self.close_queue,
-                    api, cmd)
+            Monitor(name[0], name[1], self.namespace, self.data_queue,
+                    self.close_queue, api, cmd)
             for name in names]
 
         for m in self.monitors:
