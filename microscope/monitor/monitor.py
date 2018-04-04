@@ -1,4 +1,4 @@
-from typing import List, Set
+from typing import List, Set, Callable, Dict
 import json
 import sys
 import signal
@@ -245,17 +245,41 @@ class MonitorRunner:
         ids = set()
 
         for data in endpoint_data:
-            namesMatch = {endpoint['id'] for endpoint in data
-                          if endpoint['pod-name'] in pod_names}
+            try:
+                namesMatch = {
+                    endpoint['id'] for endpoint in data
+                    if
+                    endpoint['status']['external-identifiers']['pod-name']
+                    in pod_names
+                }
+            except KeyError:
+                # fall back to older API structure
+                namesMatch = {endpoint['id'] for endpoint in data
+                              if endpoint['pod-name'] in pod_names}
 
-            labelsMatch = {endpoint['id'] for endpoint in data
-                           if any([
-                               any(
-                                   [selector in label
-                                    for selector in selectors])
-                               for label
-                               in endpoint['labels']['orchestration-identity']
-                           ])}
+            def labels_match(endpoint_data, selectors: List[str],
+                             labels_getter: Callable[[Dict], List[str]]):
+                return {
+                    endpoint['id'] for endpoint in data
+                    if any([
+                        any(
+                            [selector in label
+                             for selector in selectors])
+                        for label
+                        in labels_getter(endpoint)
+                    ])
+                }
+
+            try:
+                labelsMatch = labels_match(
+                    endpoint_data, selectors,
+                    lambda x: x['status']['labels']['security-relevant'])
+            except KeyError:
+                # fall back to older API structure
+                labelsMatch = labels_match(
+                    endpoint_data, selectors,
+                    lambda x: x['labels']['orchestration-identity'])
+
             ids.update(namesMatch, labelsMatch)
 
         return ids
