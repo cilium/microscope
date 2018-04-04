@@ -252,7 +252,7 @@ class MonitorRunner:
                     endpoint['status']['external-identifiers']['pod-name']
                     in pod_names
                 }
-            except KeyError:
+            except (KeyError, TypeError):
                 # fall back to older API structure
                 namesMatch = {endpoint['id'] for endpoint in data
                               if endpoint['pod-name'] in pod_names}
@@ -270,15 +270,19 @@ class MonitorRunner:
                     ])
                 }
 
-            try:
-                labelsMatch = labels_match(
-                    endpoint_data, selectors,
-                    lambda x: x['status']['labels']['security-relevant'])
-            except KeyError:
-                # fall back to older API structure
-                labelsMatch = labels_match(
-                    endpoint_data, selectors,
-                    lambda x: x['labels']['orchestration-identity'])
+            getters = [
+                    lambda x: x['status']['labels']['security-relevant'],
+                    lambda x: x['labels']['orchestration-identity'],
+                    lambda x: x['labels']['security-relevant']
+            ]
+            labelsMatch = []
+            for getter in getters:
+                try:
+                    labelsMatch = labels_match(
+                      endpoint_data, selectors, getter)
+                except (KeyError, TypeError):
+                    continue
+                break
 
             ids.update(namesMatch, labelsMatch)
 
