@@ -3,5 +3,6 @@ build
 microscope.egg-info
 
 cilium-*
+pyz
 
 *__pycache__
