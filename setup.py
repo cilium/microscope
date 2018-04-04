@@ -7,7 +7,7 @@ import uuid
 from setuptools import setup
 from pip.req import parse_requirements
 
-version = "0.1.8"
+version = "0.1.9"
 
 
 with io.open('README.rst', 'r', encoding='utf-8') as readme_file:
