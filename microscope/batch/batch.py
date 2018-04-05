@@ -1,5 +1,6 @@
 import time
 import queue as queuemodule
+import sys
 
 from microscope.monitor.monitor import MonitorRunner
 
@@ -13,4 +14,4 @@ def batch(runner: MonitorRunner, timeout: int):
         except queuemodule.Empty:
             continue
         if ("output" in output):
-            print(output["output"])
+            sys.stdout.write(output["output"])
