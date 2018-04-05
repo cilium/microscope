@@ -6,6 +6,7 @@ from kubernetes.client.apis import core_v1_api
 
 from microscope.monitor.monitor import MonitorRunner, MonitorArgs
 from microscope.ui.ui import ui
+from microscope.batch.batch import batch
 
 
 def main():
@@ -87,6 +88,10 @@ def main():
                         help='Kill all `cilium monitor` on Cilium nodes. '
                         'Helpful for debugging')
 
+    parser.add_argument('--combine', action='store_true', default=False,
+                        help='Prints all output retrieved from nodes to '
+                        'stdout. Times out after timeout_monitors.')
+
     args = parser.parse_args()
 
     try:
@@ -112,7 +117,9 @@ def main():
             cmd = args.send_command
 
         runner.run(monitor_args, args.node, cmd)
-        if not args.clear_monitors:
+        if args.combine:
+            batch(runner, args.timeout_monitors)
+        elif not args.clear_monitors:
             ui(runner, args.timeout_monitors)
     except KeyboardInterrupt as e:
         pass
