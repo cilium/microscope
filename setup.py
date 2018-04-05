@@ -30,7 +30,7 @@ setup(
     author_email='maciej@covalent.io',
     url='https://github.com/cilium/microscope',
     packages=[
-        'microscope', 'microscope.ui', 'microscope.monitor'
+        'microscope', 'microscope.ui', 'microscope.monitor', 'microscope.batch'
     ],
     entry_points={
         'console_scripts': [
