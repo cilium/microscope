@@ -317,3 +317,6 @@ class MonitorRunner:
         self.close_queue.put('close')
         for m in self.monitors:
             m.process.join()
+
+    def is_alive(self):
+        return any([m.process.is_alive() for m in self.monitors])
