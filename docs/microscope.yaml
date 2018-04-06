@@ -44,6 +44,8 @@ kind: Pod
 metadata:
   name: microscope
   namespace: kube-system
+  labels:
+    k8s-app: microscope
 spec:
   serviceAccountName: microscope
   containers:
