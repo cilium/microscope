@@ -36,7 +36,7 @@ def remove_stale_columns(content: urwid.MonitoredList,
             to_remove.append(k)
 
     for key in to_remove:
-        del columns[k]
+        del columns[key]
 
 
 def ui(runner: MonitorRunner, empty_column_timeout: int):
