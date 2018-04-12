@@ -2,6 +2,7 @@ from typing import List, Set, Callable, Dict
 import json
 import sys
 import signal
+import time
 import threading
 from multiprocessing import Process, Queue
 import queue as queuemodule
@@ -61,6 +62,7 @@ class Monitor:
                  close_queue: Queue,
                  api: core_v1_api.CoreV1Api,
                  cmd: List[str],
+                 mode: str
                  ):
         self.pod_name = pod_name
         self.node_name = node_name
@@ -69,6 +71,7 @@ class Monitor:
         self.close_queue = close_queue
         self.api = api
         self.cmd = cmd
+        self.mode = mode
 
         self.process = Process(target=self.connect)
         self.output = node_name + "\n"
@@ -94,27 +97,82 @@ class Monitor:
 
         signal.signal(signal.SIGINT, sigint_in_monitor)
 
+        processor = MonitorOutputProcessor(self.mode)
+
         while resp.is_open():
+            for msg in processor:
+                if msg:
+                    self.queue.put({
+                        'name': self.pod_name,
+                        'node_name': self.node_name,
+                        'output': msg})
+
             resp.update(timeout=1)
             if not self.close_queue.empty():
                 print("Closing monitor")
                 resp.write_stdin('\x03')
                 break
             if resp.peek_stdout():
-                self.queue.put({
-                    'name': self.pod_name,
-                    'node_name': self.node_name,
-                    'output': resp.read_stdout()})
+                processor.add_out(resp.read_stdout())
             if resp.peek_stderr():
-                self.queue.put({
-                    'name': self.pod_name,
-                    'node_name': self.node_name,
-                    'output': resp.read_stderr()})
+                processor.add_err(resp.read_stderr())
 
         resp.close()
 
         self.close_queue.cancel_join_thread()
         self.queue.cancel_join_thread()
+
+
+class MonitorOutputProcessor:
+    def __init__(self, mode: str):
+        self.std_output = queuemodule.Queue()
+        self.std_err = queuemodule.Queue()
+        self.current_msg = ""
+        self.mode = mode
+        self.last_event_wait_timeout = 1500
+        self.last_event_time = 0
+
+    def add_out(self, out: str):
+        for line in out.split("\n"):
+            self.std_output.put(line)
+
+    def add_err(self, err: str):
+        for line in err.split("\n"):
+            self.std_err.put(line)
+
+    def __iter__(self):
+        return self
+
+    def __next__(self) -> str:
+        err = ""
+        while not self.std_err.empty():
+            line = self.std_err.get()
+            err += line + "\n"
+        if err:
+            return err.rstrip("\n")
+
+        prev_event = self.last_event_time
+        while not self.std_output.empty():
+            line = self.std_output.get()
+            if self.mode == "":
+                return line
+            self.last_event_time = int(round(time.time() * 1000))
+
+            if '---' in line:
+                tmp = self.current_msg
+                self.current_msg = line + "\n"
+                return tmp.rstrip("\n")
+            else:
+                self.current_msg += line.strip("\n") + "\n"
+
+        now = int(round(time.time() * 1000))
+        if self.mode != "" and prev_event + self.last_event_wait_timeout < now:
+            if self.current_msg:
+                tmp = self.current_msg
+                self.current_msg = ""
+                return tmp.rstrip("\n")
+
+        raise StopIteration
 
 
 class MonitorRunner:
@@ -158,9 +216,14 @@ class MonitorRunner:
             cmd = self.get_monitor_command(monitor_args,
                                            [name[0] for name in names])
 
+        mode = ""
+
+        if monitor_args.verbose:
+            mode = "verbose"
+
         self.monitors = [
             Monitor(name[0], name[1], self.namespace, self.data_queue,
-                    self.close_queue, api, cmd)
+                    self.close_queue, api, cmd, mode)
             for name in names]
 
         for m in self.monitors:
@@ -313,7 +376,7 @@ class MonitorRunner:
         self.data_queue.put(data)
 
     def finish(self):
-        print('closing')
+        print('\nclosing')
         self.close_queue.put('close')
         for m in self.monitors:
             m.process.join()
