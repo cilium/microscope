@@ -14,4 +14,4 @@ def batch(runner: MonitorRunner, timeout: int):
         except queuemodule.Empty:
             continue
         if ("output" in output):
-            sys.stdout.write(output["output"])
+            sys.stdout.write("\n" + output["node_name"] + ": " + output["output"])
