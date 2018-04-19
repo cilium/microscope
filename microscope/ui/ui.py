@@ -122,7 +122,7 @@ def ui(runner: MonitorRunner, empty_column_timeout: int):
                     and output["name"] in monitor_columns):
                 c = monitor_columns[output["name"]]
                 if c.monitor.output_lock.acquire():
-                    c.monitor.output += output["output"]
+                    c.monitor.output += "\n" + output["output"]
                     c.set_text(c.monitor.output)
                     c.monitor.output_lock.release()
 
