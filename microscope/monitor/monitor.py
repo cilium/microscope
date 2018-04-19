@@ -117,10 +117,18 @@ class Monitor:
             if resp.peek_stderr():
                 processor.add_err(resp.read_stderr())
 
+        for msg in processor:
+            if msg:
+                self.queue.put({
+                    'name': self.pod_name,
+                    'node_name': self.node_name,
+                    'output': msg})
+
         resp.close()
 
         self.close_queue.cancel_join_thread()
-        self.queue.cancel_join_thread()
+        self.queue.close()
+        self.queue.join_thread()
 
 
 class MonitorOutputProcessor:
