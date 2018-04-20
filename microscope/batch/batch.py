@@ -1,7 +1,8 @@
 import time
 import sys
-
+from multiprocessing import Queue
 import queue as queuemodule
+import typing.io
 
 from microscope.monitor.monitor import MonitorRunner
 
@@ -10,22 +11,19 @@ def batch(runner: MonitorRunner, timeout: int):
     start_time = time.time()
     while(runner.is_alive() and runner.close_queue.empty()
           and (start_time + timeout > time.time() or timeout == 0)):
-        while True:
-            try:
-                output = runner.data_queue.get(True, 1)
-                if ("output" in output):
-                    print(f"\n{output['node_name']}: {output['output']}",
-                          end="")
-            except queuemodule.Empty:
-                break
+        drain_and_print(runner.data_queue, sys.stdout)
 
     # drain queue
+    drain_and_print(runner.data_queue, sys.stdout)
+
+
+def drain_and_print(queue: Queue, stream: typing.io):
     while True:
         try:
-            output = runner.data_queue.get(True, 1)
+            output = queue.get(True, 1)
             if ("output" in output):
                 print(f"\n{output['node_name']}: {output['output']}",
-                      end="")
+                      end="", file=stream)
+                stream.flush()
         except queuemodule.Empty:
             break
-    sys.stdout.flush()

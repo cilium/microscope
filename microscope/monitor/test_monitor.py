@@ -1,10 +1,11 @@
 import time
 
-from microscope.monitor.monitor import MonitorOutputProcessor
+from microscope.monitor.monitor import MonitorOutputProcessorSimple
+from microscope.monitor.monitor import MonitorOutputProcessorVerbose
 
 
 def test_non_verbose_mode():
-    p = MonitorOutputProcessor("")
+    p = MonitorOutputProcessorSimple()
 
     output = """trololo
     line2
@@ -41,7 +42,7 @@ def test_non_verbose_mode():
 
 
 def test_verbose_mode():
-    p = MonitorOutputProcessor("verbose")
+    p = MonitorOutputProcessorVerbose()
 
     output = """trololo
     line2

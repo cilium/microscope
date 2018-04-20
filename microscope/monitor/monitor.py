@@ -97,7 +97,10 @@ class Monitor:
 
         signal.signal(signal.SIGINT, sigint_in_monitor)
 
-        processor = MonitorOutputProcessor(self.mode)
+        if self.mode == "":
+            processor = MonitorOutputProcessorSimple()
+        else:
+            processor = MonitorOutputProcessorVerbose()
 
         while resp.is_open():
             for msg in processor:
@@ -131,12 +134,43 @@ class Monitor:
         self.queue.join_thread()
 
 
-class MonitorOutputProcessor:
-    def __init__(self, mode: str):
+class MonitorOutputProcessorSimple:
+    def __init__(self):
         self.std_output = queuemodule.Queue()
         self.std_err = queuemodule.Queue()
-        self.current_msg = ""
-        self.mode = mode
+
+    def add_out(self, out: str):
+        for line in out.split("\n"):
+            self.std_output.put(line)
+
+    def add_err(self, err: str):
+        for line in err.split("\n"):
+            self.std_err.put(line)
+
+    def __iter__(self):
+        return self
+
+    def __next__(self) -> str:
+        err = []
+        while not self.std_err.empty():
+            line = self.std_err.get()
+            err.append(line)
+        if err:
+            return "\n".join(err)
+
+        try:
+            return self.std_output.get_nowait()
+        except queuemodule.Empty:
+            raise StopIteration
+
+        raise StopIteration
+
+
+class MonitorOutputProcessorVerbose:
+    def __init__(self):
+        self.std_output = queuemodule.Queue()
+        self.std_err = queuemodule.Queue()
+        self.current_msg = []
         self.last_event_wait_timeout = 1500
         self.last_event_time = 0
 
@@ -152,35 +186,38 @@ class MonitorOutputProcessor:
         return self
 
     def __next__(self) -> str:
-        err = ""
+        err = []
         while not self.std_err.empty():
             line = self.std_err.get()
-            err += line + "\n"
+            err.append(line)
         if err:
-            return err.rstrip("\n")
+            return "\n".join(err)
 
         prev_event = self.last_event_time
         while not self.std_output.empty():
             line = self.std_output.get()
-            if self.mode == "":
-                return line
+
             self.last_event_time = int(round(time.time() * 1000))
 
             if '---' in line:
-                tmp = self.current_msg
-                self.current_msg = line + "\n"
-                return tmp.rstrip("\n")
+                return self.pop_current(line)
             else:
-                self.current_msg += line.strip("\n") + "\n"
+                self.current_msg.append(line)
 
         now = int(round(time.time() * 1000))
-        if self.mode != "" and prev_event + self.last_event_wait_timeout < now:
+        if prev_event + self.last_event_wait_timeout < now:
             if self.current_msg:
-                tmp = self.current_msg
-                self.current_msg = ""
-                return tmp.rstrip("\n")
+                return self.pop_current()
 
         raise StopIteration
+
+    def pop_current(self, init: str="") -> str:
+        tmp = "\n".join(self.current_msg)
+        if init:
+            self.current_msg = [init]
+        else:
+            self.current_msg = []
+        return tmp
 
 
 class MonitorRunner:
