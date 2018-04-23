@@ -88,9 +88,8 @@ def main():
                         help='Kill all `cilium monitor` on Cilium nodes. '
                         'Helpful for debugging')
 
-    parser.add_argument('--combine', action='store_true', default=False,
-                        help='Prints all output retrieved from nodes to '
-                        'stdout. Times out after timeout_monitors.')
+    parser.add_argument('--rich', action='store_true', default=False,
+                        help='Opens rich ui version')
 
     args = parser.parse_args()
 
@@ -117,10 +116,10 @@ def main():
             cmd = args.send_command
 
         runner.run(monitor_args, args.node, cmd)
-        if args.combine:
-            batch(runner, args.timeout_monitors)
-        elif not args.clear_monitors:
+        if args.rich:
             ui(runner, args.timeout_monitors)
+        elif not args.clear_monitors:
+            batch(runner, args.timeout_monitors)
     except KeyboardInterrupt as e:
         pass
     finally:
