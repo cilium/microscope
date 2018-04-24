@@ -81,8 +81,8 @@ def test_l7_processor_parse():
         "31.154/public => 0")
 
     assert res == (
-                   "([k8s:io.kubernetes.pod.namespace=default k8s:id=app2]) ="
-                   "> ([k8s:id=app1 k8s:io.kubernetes.pod.namespace=default])"
+                   "([k8s:id=app2]) ="
+                   "> ([k8s:id=app1])"
                    " http GET http://10.110.31.154/public Forwarded")
 
     res = p.parse_l7_line(
@@ -93,9 +93,9 @@ def test_l7_processor_parse():
     )
 
     assert res == (
-        "([k8s:app=empire-backup k8s:io.kubernetes.pod.namespace=default]) => "
-        "([k8s:io.kubernetes.pod.namespace=default k8s:app=kafka])"
-        " kafka"
+        "([k8s:app=empire-backup]) => "
+        "([k8s:app=kafka]) "
+        "kafka"
         " offsetfetch topic deathstar-plans Forwarded"
     )
 
@@ -117,8 +117,8 @@ def test_l7_line_break():
     assert len(lines) == 1
 
     assert lines[0] == (
-        "([k8s:io.kubernetes.pod.namespace=default k8s:id=app2]) ="
-        "> ([k8s:id=app1 k8s:io.kubernetes.pod.namespace=default]) "
+        "([k8s:id=app2]) ="
+        "> ([k8s:id=app1]) "
         "http GET http://10.110.31.154/public Forwarded"
     )
 
@@ -153,8 +153,8 @@ def test_l7_line_break():
 
     for x in lines:
         assert x == (
-            "([k8s:io.kubernetes.pod.namespace=default k8s:id=app2]) ="
-            "> ([k8s:id=app1 k8s:io.kubernetes.pod.namespace=default]) "
+            "([k8s:id=app2]) ="
+            "> ([k8s:id=app1]) "
             "http GET http://10.110.31.154/public Forwarded"
         )
 
@@ -215,7 +215,7 @@ def test_l7_multiple_lines():
 
     for x in lines:
         assert x == (
-            "([k8s:io.kubernetes.pod.namespace=default k8s:id=app2]) ="
-            "> ([k8s:id=app1 k8s:io.kubernetes.pod.namespace=default]) "
+            "([k8s:id=app2]) ="
+            "> ([k8s:id=app1]) "
             "http GET http://10.110.31.154/public Forwarded"
         )

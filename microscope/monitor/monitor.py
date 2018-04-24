@@ -219,6 +219,8 @@ class MonitorOutputProcessorL7(MonitorOutputProcessorSimple):
         self.std_output = ""
         self.std_err = queuemodule.Queue()
         self.label_regex = re.compile(r'\(\[.*?\]\)')
+        self.namespace_regex = re.compile(
+            r'k8s:io.kubernetes.pod.namespace=.*?(?=[ \]])')
 
     def add_out(self, out: str):
         self.std_output += out
@@ -264,7 +266,11 @@ class MonitorOutputProcessorL7(MonitorOutputProcessorSimple):
 
     def parse_l7_line(self, line: str):
             parts = line.split(',')
-            labels = self.label_regex.findall(parts[0])
+            labels = [self.namespace_regex.sub("", x).replace(
+                "([ ", "(["
+            ).replace(
+                " ])", "])")
+                      for x in self.label_regex.findall(parts[0])]
             labelsString = " => ".join(labels)
             protocol = parts[0].strip().split(" ")[2]
 
