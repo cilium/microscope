@@ -6,6 +6,7 @@ import time
 import threading
 from multiprocessing import Process, Queue
 import queue as queuemodule
+import re
 
 from kubernetes.client.apis import core_v1_api
 from kubernetes.client.rest import ApiException
@@ -99,6 +100,8 @@ class Monitor:
 
         if self.mode == "":
             processor = MonitorOutputProcessorSimple()
+        elif self.mode == "l7":
+            processor = MonitorOutputProcessorL7()
         else:
             processor = MonitorOutputProcessorVerbose()
 
@@ -166,24 +169,13 @@ class MonitorOutputProcessorSimple:
         raise StopIteration
 
 
-class MonitorOutputProcessorVerbose:
+class MonitorOutputProcessorVerbose(MonitorOutputProcessorSimple):
     def __init__(self):
         self.std_output = queuemodule.Queue()
         self.std_err = queuemodule.Queue()
         self.current_msg = []
         self.last_event_wait_timeout = 1500
         self.last_event_time = 0
-
-    def add_out(self, out: str):
-        for line in out.split("\n"):
-            self.std_output.put(line)
-
-    def add_err(self, err: str):
-        for line in err.split("\n"):
-            self.std_err.put(line)
-
-    def __iter__(self):
-        return self
 
     def __next__(self) -> str:
         err = []
@@ -218,6 +210,66 @@ class MonitorOutputProcessorVerbose:
         else:
             self.current_msg = []
         return tmp
+
+
+class MonitorOutputProcessorL7(MonitorOutputProcessorSimple):
+    def __init__(self):
+        self.std_output = ""
+        self.std_err = queuemodule.Queue()
+        self.label_regex = re.compile(r'\(\[.*?\]\)')
+
+    def add_out(self, out: str):
+        self.std_output += out
+
+    def getline(self) -> str:
+        lines = self.std_output.strip().split("\n")
+        if self.is_full(lines[0]):
+            try:
+                self.std_output = "\n".join(lines[1:])
+            except IndexError:
+                # only one line, clear stdoutput just in case
+                self.std_output = ""
+            finally:
+                return lines[0]
+        else:
+            return ""
+
+    def is_full(self, line: str) -> bool:
+        return ("=>" in line or "Listening for events" in line
+                or "Press Ctrl-C" in line)
+
+    def __next__(self) -> str:
+        err = []
+        while not self.std_err.empty():
+            line = self.std_err.get()
+            err.append(line)
+        if err:
+            return "\n".join(err)
+
+        if not self.std_output:
+            raise StopIteration
+
+        line = self.getline()
+        if not line:
+            raise StopIteration
+
+        try:
+            return self.parse_l7_line(line)
+        except IndexError:
+            return line
+
+        raise StopIteration
+
+    def parse_l7_line(self, line: str):
+            parts = line.split(',')
+            labels = self.label_regex.findall(parts[0])
+            labelsString = " => ".join(labels)
+            protocol = parts[0].strip().split(" ")[2]
+
+            tmp = parts[2].strip().split(" ")
+            verdict = tmp[1]
+            action = " ".join(tmp[2:-2])
+            return f"{labelsString} {protocol} {action} {verdict}"
 
 
 class MonitorRunner:
@@ -265,6 +317,8 @@ class MonitorRunner:
 
         if monitor_args.verbose:
             mode = "verbose"
+        if "l7" in monitor_args.types:
+            mode = "l7"
 
         self.monitors = [
             Monitor(name[0], name[1], self.namespace, self.data_queue,
