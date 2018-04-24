@@ -8,6 +8,7 @@ from multiprocessing import Process, Queue
 import queue as queuemodule
 import re
 
+from kubernetes import client
 from kubernetes.client.apis import core_v1_api
 from kubernetes.client.rest import ApiException
 from kubernetes.stream import stream
@@ -404,24 +405,13 @@ class MonitorRunner:
         return exec_command
 
     def retrieve_endpoint_data(self, node_names: List[str]) -> Set[int]:
-        getters = [Process(target=self.get_node_endpoint_data,
-                           args=(node,))
-                   for node in node_names]
+        crds = client.CustomObjectsApi()
+        cep_resp = crds.list_cluster_custom_object("cilium.io", "v2",
+                                                   "ciliumendpoints")
+        ceps = [cep['status'] for cep in cep_resp['items']]
 
-        for p in getters:
-            p.start()
-
-        try:
-            outputs = [self.data_queue.get(timeout=10) for _ in getters]
-        except queuemodule.Empty as e:
-            for p in getters:
-                p.terminate()
-            raise e
-
-        for p in getters:
-            p.join()
-
-        return outputs
+        # an array to match the older per-agent command return
+        return [ceps]
 
     def retrieve_endpoint_ids(self, endpoint_data, selectors: List[str],
                               pod_names: List[str],
