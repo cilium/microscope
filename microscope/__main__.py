@@ -5,6 +5,7 @@ from kubernetes.client import Configuration
 from kubernetes.client.apis import core_v1_api
 
 from microscope.monitor.monitor import MonitorRunner, MonitorArgs
+from microscope.monitor.monitor import NoEndpointException
 from microscope.ui.ui import ui
 from microscope.batch.batch import batch
 
@@ -91,6 +92,9 @@ def main():
     parser.add_argument('--rich', action='store_true', default=False,
                         help='Opens rich ui version')
 
+    parser.add_argument('-n', '--namespace', type=str, default='default',
+                        help='Namespace to look for selected endpoints in')
+
     args = parser.parse_args()
 
     try:
@@ -102,12 +106,13 @@ def main():
     c.assert_hostname = False
     Configuration.set_default(c)
     api = core_v1_api.CoreV1Api()
-    runner = MonitorRunner(args.cilium_namespace, api)
+    runner = MonitorRunner(args.cilium_namespace, api, args.namespace)
 
     monitor_args = MonitorArgs(args.verbose, args.hex, args.selector, args.pod,
                                args.endpoint, args.to_selector, args.to_pod,
                                args.to_endpoint, args.from_selector,
-                               args.from_pod, args.from_endpoint, args.type)
+                               args.from_pod, args.from_endpoint, args.type,
+                               args.namespace)
 
     try:
         if args.clear_monitors:
@@ -122,6 +127,8 @@ def main():
             batch(runner, args.timeout_monitors)
     except KeyboardInterrupt as e:
         pass
+    except NoEndpointException as e:
+        print("Cilium endpoints matching pod names/label selectors not found.")
     finally:
         runner.finish()
 

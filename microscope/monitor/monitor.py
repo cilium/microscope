@@ -26,7 +26,8 @@ class MonitorArgs:
                  from_selectors: List[str],
                  from_pods: List[str],
                  from_endpoints: List[int],
-                 types: List[str]):
+                 types: List[str],
+                 namespace: str):
         self.verbose = verbose
         self.hex = hex
         self.related_selectors = related_selectors
@@ -39,13 +40,14 @@ class MonitorArgs:
         self.from_pods = self.preprocess_pod_names(from_pods)
         self.from_endpoints = from_endpoints
         self.types = types
+        self.namespace = namespace
 
     def preprocess_pod_names(self, names: List[str]) -> List[str]:
         def defaultize(name: str):
             if ':' in name:
                 return name
             else:
-                return 'default:' + name
+                return f'{self.namespace}:' + name
         return [defaultize(n) for n in names]
 
 
@@ -273,9 +275,10 @@ class MonitorOutputProcessorL7(MonitorOutputProcessorSimple):
 
 
 class MonitorRunner:
-    def __init__(self, namespace, api):
+    def __init__(self, namespace, api, endpoint_namespace):
         self.namespace = namespace
         self.api = api
+        self.endpoint_namespace = endpoint_namespace
         self.monitors = []
         self.data_queue = Queue()
         self.close_queue = Queue()
@@ -334,17 +337,29 @@ class MonitorRunner:
 
         related_ids = self.retrieve_endpoint_ids(endpoint_data,
                                                  args.related_selectors,
-                                                 args.related_pods)
+                                                 args.related_pods,
+                                                 self.endpoint_namespace)
+        if (args.related_selectors or args.related_pods) and not related_ids:
+            raise NoEndpointException("No related endpoints found")
+
         related_ids.update(args.related_endpoints)
 
         to_ids = self.retrieve_endpoint_ids(endpoint_data,
                                             args.to_selectors,
-                                            args.to_pods)
+                                            args.to_pods,
+                                            self.endpoint_namespace)
+        if (args.to_selectors or args.to_pods) and not to_ids:
+            raise NoEndpointException("No to endpoints found")
+
         to_ids.update(args.to_endpoints)
 
         from_ids = self.retrieve_endpoint_ids(endpoint_data,
                                               args.from_selectors,
-                                              args.from_pods)
+                                              args.from_pods,
+                                              self.endpoint_namespace)
+        if (args.from_selectors or args.from_pods) and not from_ids:
+            raise NoEndpointException("No from endpoints found")
+
         from_ids.update(args.from_endpoints)
 
         exec_command = [
@@ -403,8 +418,10 @@ class MonitorRunner:
         return outputs
 
     def retrieve_endpoint_ids(self, endpoint_data, selectors: List[str],
-                              pod_names: List[str]) -> Set[int]:
+                              pod_names: List[str],
+                              namespace: str) -> Set[int]:
         ids = set()
+        namespace_matcher = f"k8s:io.kubernetes.pod.namespace={namespace}"
 
         for data in endpoint_data:
             try:
@@ -429,7 +446,7 @@ class MonitorRunner:
                              for selector in selectors])
                         for label
                         in labels_getter(endpoint)
-                    ])
+                    ]) and namespace_matcher in labels_getter(endpoint)
                 }
 
             getters = [
@@ -482,3 +499,7 @@ class MonitorRunner:
 
     def is_alive(self):
         return any([m.process.is_alive() for m in self.monitors])
+
+
+class NoEndpointException(Exception):
+    pass
