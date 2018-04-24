@@ -20,7 +20,7 @@ def main():
     parser.add_argument('--hex', action='store_true', default=False)
 
     # taken from github.com/cilium/cilium/cmd/monitor.go
-    type_choices = ['drop', 'debug', 'capture', 'trace']
+    type_choices = ['drop', 'debug', 'capture', 'trace', 'l7']
     parser.add_argument('--type', action='append', default=[],
                         choices=type_choices)
 
