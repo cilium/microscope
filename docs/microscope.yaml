@@ -32,6 +32,13 @@ rules:
   verbs:
   - create
   - get
+- apiGroups:
+  - cilium.io
+  resources:
+  - ciliumnetworkpolicies
+  - ciliumendpoints
+  verbs:
+  - "*"
 ---
 apiVersion: v1
 kind: ServiceAccount
