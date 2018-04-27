@@ -38,7 +38,17 @@ rules:
   - ciliumnetworkpolicies
   - ciliumendpoints
   verbs:
-  - "*"
+  - get
+  - list
+  - watch
+- apiGroups:
+  - networking.k8s.ioa
+  resources:
+  - networkpolicies
+  verbs:
+  - get
+  - list
+  - watch
 ---
 apiVersion: v1
 kind: ServiceAccount
