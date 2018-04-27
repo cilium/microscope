@@ -58,7 +58,7 @@ spec:
   containers:
   - args:
     - sleep
-    - "1000"
+    - "100000"
     image: cilium/microscope
     imagePullPolicy: Always
     name: microscope
