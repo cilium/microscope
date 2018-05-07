@@ -1,4 +1,5 @@
 import argparse
+import signal
 
 from kubernetes import config
 from kubernetes.client import Configuration
@@ -114,6 +115,9 @@ def main():
                                args.from_pod, args.from_endpoint, args.type,
                                args.namespace)
 
+    def handle_signals(_, __):
+        runner.finish()
+
     try:
         if args.clear_monitors:
             cmd = "pkill -f \"cilium monitor\""
@@ -121,6 +125,7 @@ def main():
             cmd = args.send_command
 
         runner.run(monitor_args, args.node, cmd)
+        signal.signal(signal.SIGHUP, handle_signals)
         if args.rich:
             ui(runner, args.timeout_monitors)
         elif not args.clear_monitors:
