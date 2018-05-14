@@ -4,7 +4,7 @@ from multiprocessing import Queue
 import queue as queuemodule
 import typing.io
 
-from microscope.monitor.monitor import MonitorRunner
+from microscope.monitor.runner import MonitorRunner
 
 
 def batch(runner: MonitorRunner, timeout: int):

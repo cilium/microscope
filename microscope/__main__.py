@@ -5,8 +5,8 @@ from kubernetes import config
 from kubernetes.client import Configuration
 from kubernetes.client.apis import core_v1_api
 
-from microscope.monitor.monitor import MonitorRunner, MonitorArgs
-from microscope.monitor.monitor import NoEndpointException
+from microscope.monitor.runner import MonitorRunner, MonitorArgs
+from microscope.monitor.runner import NoEndpointException
 from microscope.ui.ui import ui
 from microscope.batch.batch import batch
 

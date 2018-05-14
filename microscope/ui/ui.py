@@ -7,7 +7,8 @@ import queue as queuemodule
 import urwid
 import urwid.raw_display
 
-from microscope.monitor.monitor import MonitorRunner, Monitor
+from microscope.monitor.runner import MonitorRunner
+from microscope.monitor.monitor import Monitor
 
 
 class MonitorColumn:
