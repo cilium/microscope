@@ -7,9 +7,8 @@ from kubernetes.client.apis import core_v1_api
 from kubernetes.client.rest import ApiException
 from kubernetes.stream import stream
 
-from microscope.monitor.parser import MonitorOutputProcessorSimple
 from microscope.monitor.parser import MonitorOutputProcessorVerbose
-from microscope.monitor.parser import MonitorOutputProcessorL7
+from microscope.monitor.parser import MonitorOutputProcessorJSON
 
 
 # we are ignoring sigint in monitor processes as they are closed via queue
@@ -65,7 +64,7 @@ class Monitor:
         if self.mode == "":
             processor = MonitorOutputProcessorSimple(self.ip_resolver)
         elif self.mode == "l7":
-            processor = MonitorOutputProcessorL7(self.ip_resolver)
+            processor = MonitorOutputProcessorJSON(self.ip_resolver)
         else:
             processor = MonitorOutputProcessorVerbose(self.ip_resolver)
 
