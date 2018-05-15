@@ -1,8 +1,9 @@
 import time
 
-from microscope.monitor.monitor import MonitorOutputProcessorSimple
-from microscope.monitor.monitor import MonitorOutputProcessorVerbose
-from microscope.monitor.monitor import MonitorOutputProcessorL7
+from microscope.monitor.parser import MonitorOutputProcessorSimple
+from microscope.monitor.parser import MonitorOutputProcessorVerbose
+from microscope.monitor.parser import MonitorOutputProcessorL7
+from microscope.monitor.parser import MonitorOutputProcessorJSON
 
 
 def test_non_verbose_mode():
@@ -219,3 +220,58 @@ def test_l7_multiple_lines():
             "> ([k8s:id=app1]) "
             "http GET http://10.110.31.154/public Forwarded"
         )
+
+
+def test_json_processor_get_event():
+    p = MonitorOutputProcessorJSON()
+
+    p.add_out('{"trolo1":"lolo1"}\n')
+    p.add_out('{"trolo2":"')
+
+    assert p.get_event() == '{"trolo1":"lolo1"}'
+    assert p.get_event() is None
+
+    p.add_out('lolo2"}\n')
+    assert p.get_event() == '{"trolo2":"lolo2"}'
+
+
+def test_json_processor():
+    p = MonitorOutputProcessorJSON()
+
+    p.add_out('{"type":"logRecord","observationPoint":"Ingress","flowType":')
+    p.add_out('"Request","l7Proto":"http","srcEpID":0,"srcEpLabels":["k8s:i')
+    p.add_out('o.kubernetes.pod.namespace=default","k8s:id=app2"],"srcIdent')
+    p.add_out('ity":3338,"dstEpID":13949,"dstEpLabels":["k8s:id=app1","k8s:')
+    p.add_out('io.kubernetes.pod.namespace=default"],"DstIdentity":45459,"v')
+    p.add_out('erdict":"Denied","http":{"Code":403,"Method":"GET","URL":{"S')
+    p.add_out('cheme":"http","Opaque":"","User":null,"Host":"app1-service",')
+    p.add_out('"Path":"/private","RawPath":"","ForceQuery":false,"RawQuery"')
+    p.add_out(':"","Fragment":""},"Protocol":"HTTP/1.1","Headers":{"Accept"')
+    p.add_out(':["*/*"],"User-Agent":["curl/7.54.0"],"X-Request-Id":["05199')
+    p.add_out('9d8-6987-4d79-9fad-729c87cb49ae"]}}}')
+
+    p.add_out('{"type":"logRecord","observationPoi')
+    p.add_out('nt":"Ingress","flowType":"Request",')
+    p.add_out('"l7Proto":"kafka","srcEpID":0,"srcE')
+    p.add_out('pLabels":["k8s:app=empire-backup","')
+    p.add_out('k8s:io.kubernetes.pod.namespace=def')
+    p.add_out('ault"],"srcIdentity":8370,"dstEpID"')
+    p.add_out(':29381,"dstEpLabels":["k8s:io.kuber')
+    p.add_out('netes.pod.namespace=default","k8s:a')
+    p.add_out('pp=kafka"],"DstIdentity":12427,"ver')
+    p.add_out('dict":"Forwarded","kafka":{"ErrorCo')
+    p.add_out('de":0,"APIVersion":5,"APIKey":"fetc')
+    p.add_out('h","CorrelationID":10,"Topic":{"Top')
+    p.add_out('ic":"deathstar-plans"}}}')
+
+    events = [x for x in p]
+
+    assert len(events) == 2
+    assert events[0] == (
+        "(k8s:id=app2) => (k8s:id=app1) http GET /private Denied"
+    )
+
+    assert events[1] == (
+        "(k8s:app=empire-backup) => (k8s:app=kafka)"
+        " kafka fetch deathstar-plans Forwarded"
+    )

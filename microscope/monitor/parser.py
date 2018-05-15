@@ -1,6 +1,8 @@
 import queue as queuemodule
 import time
 import re
+import json
+from typing import List, Dict
 
 
 class MonitorOutputProcessorSimple:
@@ -17,16 +19,21 @@ class MonitorOutputProcessorSimple:
         for line in err.split("\n"):
             self.std_err.put(line)
 
-    def __iter__(self):
-        return self
-
-    def __next__(self) -> str:
+    def get_err(self) -> str:
         err = []
         while not self.std_err.empty():
             line = self.std_err.get()
             err.append(line)
         if err:
             return "\n".join(err)
+
+    def __iter__(self):
+        return self
+
+    def __next__(self) -> str:
+        err = self.get_err()
+        if err:
+            return err
 
         try:
             return self.std_output.get_nowait()
@@ -46,12 +53,9 @@ class MonitorOutputProcessorVerbose(MonitorOutputProcessorSimple):
         self.last_event_time = 0
 
     def __next__(self) -> str:
-        err = []
-        while not self.std_err.empty():
-            line = self.std_err.get()
-            err.append(line)
+        err = self.get_err()
         if err:
-            return "\n".join(err)
+            return err
 
         prev_event = self.last_event_time
         while not self.std_output.empty():
@@ -111,12 +115,9 @@ class MonitorOutputProcessorL7(MonitorOutputProcessorSimple):
                 or "Press Ctrl-C" in line)
 
     def __next__(self) -> str:
-        err = []
-        while not self.std_err.empty():
-            line = self.std_err.get()
-            err.append(line)
+        err = self.get_err()
         if err:
-            return "\n".join(err)
+            return err
 
         if not self.std_output:
             raise StopIteration
@@ -146,3 +147,73 @@ class MonitorOutputProcessorL7(MonitorOutputProcessorSimple):
             verdict = tmp[1]
             action = " ".join(tmp[2:-2])
             return f"{labelsString} {protocol} {action} {verdict}"
+
+
+class MonitorOutputProcessorJSON(MonitorOutputProcessorSimple):
+    def __init__(self):
+        self.std_output = ""
+        self.std_err = queuemodule.Queue()
+
+    def add_out(self, out: str):
+        self.std_output += out
+
+    def get_event(self) -> str:
+        stack = []
+        opening = 0
+        closing = 0
+
+        for i, c in enumerate(self.std_output):
+            if c == "{":
+                stack.append(i)
+            if c == "}":
+                opening = stack.pop()
+                if len(stack) == 0:
+                    closing = i
+                    break
+        if closing > opening:
+            ret = self.std_output[opening:closing+1]
+            self.std_output = self.std_output[closing+1:]
+            return ret
+        else:
+            return None
+
+    def parse_event(self, e: str) -> str:
+        event = json.loads(e)
+
+        if event["type"] == "logRecord":
+            return self.parse_l7(event)
+        return e
+
+    def parse_labels(self, labels: List[str]) -> str:
+        return ", ".join([l for l in labels
+                          if "k8s:io.kubernetes.pod.namespace=" not in l])
+
+    def parse_l7(self, event: Dict):
+        src_labels = self.parse_labels(event["srcEpLabels"])
+        dst_labels = self.parse_labels(event["dstEpLabels"])
+
+        action = ""
+        if "http" in event:
+            http = event['http']
+            action = f"{http['Method']} {http['URL']['Path']}"
+
+        if "kafka" in event:
+            kafka = event['kafka']
+            action = f"{kafka['APIKey']} {kafka['Topic']['Topic']}"
+
+        return (f"({src_labels}) => ({dst_labels}) {event['l7Proto']}"
+                f" {action} {event['verdict']}")
+
+    def __next__(self) -> str:
+        err = self.get_err()
+        if err:
+            return err
+
+        if not self.std_output:
+            raise StopIteration
+
+        event = self.get_event()
+        if event is None:
+            raise StopIteration
+
+        return self.parse_event(event)

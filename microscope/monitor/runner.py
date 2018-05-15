@@ -157,6 +157,9 @@ class MonitorRunner:
                 exec_command.append('-v')
             exec_command.append('--hex')
 
+        if not args.hex and not args.verbose:
+            exec_command.append('--json')
+
         if related_ids:
             for e in related_ids:
                 exec_command.append('--related-to')
