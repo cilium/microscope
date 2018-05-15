@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Dict
 import signal
 import threading
 from multiprocessing import Process, Queue
@@ -26,6 +26,7 @@ class Monitor:
                  cmd: List[str],
                  mode: str,
                  ip_resolver,
+                 identities: Dict
                  ):
         self.pod_name = pod_name
         self.node_name = node_name
@@ -36,6 +37,8 @@ class Monitor:
         self.cmd = cmd
         self.mode = mode
         self.ip_resolver = ip_resolver
+        # read only
+        self.identities = identities
 
         self.process = Process(target=self.connect)
         self.output = node_name + "\n"
@@ -64,7 +67,7 @@ class Monitor:
         if self.mode == "":
             processor = MonitorOutputProcessorSimple(self.ip_resolver)
         elif self.mode == "l7":
-            processor = MonitorOutputProcessorJSON(self.ip_resolver)
+            processor = MonitorOutputProcessorJSON(self.ip_resolver, self.identities)
         else:
             processor = MonitorOutputProcessorVerbose(self.ip_resolver)
 
