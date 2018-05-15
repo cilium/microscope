@@ -150,9 +150,10 @@ class MonitorOutputProcessorL7(MonitorOutputProcessorSimple):
 
 
 class MonitorOutputProcessorJSON(MonitorOutputProcessorSimple):
-    def __init__(self):
+    def __init__(self, identities: Dict):
         self.std_output = ""
         self.std_err = queuemodule.Queue()
+        self.identities = identities
 
     def add_out(self, out: str):
         self.std_output += out
@@ -178,10 +179,13 @@ class MonitorOutputProcessorJSON(MonitorOutputProcessorSimple):
             return None
 
     def parse_event(self, e: str) -> str:
-        event = json.loads(e)
+        event = json.loads(e, strict=False)
 
         if event["type"] == "logRecord":
             return self.parse_l7(event)
+        if event["type"] == "trace":
+            return self.parse_trace(event)
+
         return e
 
     def parse_labels(self, labels: List[str]) -> str:
@@ -203,6 +207,12 @@ class MonitorOutputProcessorJSON(MonitorOutputProcessorSimple):
 
         return (f"({src_labels}) => ({dst_labels}) {event['l7Proto']}"
                 f" {action} {event['verdict']}")
+
+    def parse_trace(self, event: Dict):
+        src_labels = self.parse_labels(self.identities[event["srcLabel"]])
+        dst_labels = self.parse_labels(self.identities[event["dstLabel"]])
+
+        return f"({src_labels}) => ({dst_labels})"
 
     def __next__(self) -> str:
         err = self.get_err()
