@@ -101,6 +101,9 @@ def main():
     parser.add_argument('-n', '--namespace', type=str, default='default',
                         help='Namespace to look for selected endpoints in')
 
+    parser.add_argument('--raw', action='store_true', default=False,
+                        help='Print out raw monitor output without parsing')
+
     args = parser.parse_args()
 
     try:
@@ -120,7 +123,7 @@ def main():
                                args.to_selector, args.to_pod,
                                args.to_endpoint, args.from_selector,
                                args.from_pod, args.from_endpoint, args.type,
-                               args.namespace)
+                               args.namespace, args.raw)
 
     def handle_signals(_, __):
         runner.finish()

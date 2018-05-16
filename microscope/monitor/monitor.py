@@ -9,6 +9,7 @@ from kubernetes.stream import stream
 
 from microscope.monitor.parser import MonitorOutputProcessorVerbose
 from microscope.monitor.parser import MonitorOutputProcessorJSON
+from microscope.monitor.parser import MonitorOutputProcessorSimple
 
 
 # we are ignoring sigint in monitor processes as they are closed via queue
@@ -25,13 +26,8 @@ class Monitor:
                  api: core_v1_api.CoreV1Api,
                  cmd: List[str],
                  mode: str,
-<<<<<<< HEAD
                  ip_resolver,
                  identities: Dict
-=======
-                 identities: Dict,
-                 endpoints: Dict
->>>>>>> Add trace json parsing
                  ):
         self.pod_name = pod_name
         self.node_name = node_name
@@ -72,9 +68,9 @@ class Monitor:
         signal.signal(signal.SIGINT, sigint_in_monitor)
 
         if self.mode == "":
-            processor = MonitorOutputProcessorSimple(self.ip_resolver)
-        elif self.mode == "l7":
             processor = MonitorOutputProcessorJSON(self.ip_resolver, self.identities)
+        elif self.mode == "raw":
+            processor = MonitorOutputProcessorSimple(self.ip_resolver)
         else:
             processor = MonitorOutputProcessorVerbose(self.ip_resolver)
 
