@@ -1,6 +1,5 @@
 import queue as queuemodule
 import time
-import re
 import json
 from typing import List, Dict, Tuple
 
@@ -83,70 +82,6 @@ class MonitorOutputProcessorVerbose(MonitorOutputProcessorSimple):
         else:
             self.current_msg = []
         return tmp
-
-
-class MonitorOutputProcessorL7(MonitorOutputProcessorSimple):
-    def __init__(self, resolver):
-        self.resolver = resolver
-        self.std_output = ""
-        self.std_err = queuemodule.Queue()
-        self.label_regex = re.compile(r'\(\[.*?\]\)')
-        self.namespace_regex = re.compile(
-            r'k8s:io.kubernetes.pod.namespace=.*?(?=[ \]])')
-
-    def add_out(self, out: str):
-        self.std_output += out
-
-    def getline(self) -> str:
-        lines = self.std_output.strip().split("\n")
-        if self.is_full(lines[0]):
-            try:
-                self.std_output = "\n".join(lines[1:])
-            except IndexError:
-                # only one line, clear stdoutput just in case
-                self.std_output = ""
-            finally:
-                return lines[0]
-        else:
-            return ""
-
-    def is_full(self, line: str) -> bool:
-        return ("=>" in line or "Listening for events" in line
-                or "Press Ctrl-C" in line)
-
-    def __next__(self) -> str:
-        err = self.get_err()
-        if err:
-            return err
-
-        if not self.std_output:
-            raise StopIteration
-
-        line = self.getline()
-        if not line:
-            raise StopIteration
-
-        try:
-            return self.parse_l7_line(line)
-        except IndexError:
-            return self.resolver.resolve_to_podnames(line)
-
-        raise StopIteration
-
-    def parse_l7_line(self, line: str):
-            parts = line.split(',')
-            labels = [self.namespace_regex.sub("", x).replace(
-                "([ ", "(["
-            ).replace(
-                " ])", "])")
-                      for x in self.label_regex.findall(parts[0])]
-            labelsString = " => ".join(labels)
-            protocol = parts[0].strip().split(" ")[2]
-
-            tmp = parts[2].strip().split(" ")
-            verdict = tmp[1]
-            action = " ".join(tmp[2:-2])
-            return f"{labelsString} {protocol} {action} {verdict}"
 
 
 class MonitorOutputProcessorJSON(MonitorOutputProcessorSimple):
