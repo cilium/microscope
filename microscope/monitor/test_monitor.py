@@ -202,9 +202,22 @@ def test_json_processor():
 
     p.add_out('{"type":"debug","message":"debug message","cpu":"CPU 01"}')
 
+    p.add_out("""
+{
+    "cpu": "CPU 01:",
+    "type": "capture",
+    "mark": "0x8b0fe309",
+    "message": "Delivery to ifindex 51",
+    "source": 29898,
+    "bytes": 66,
+    "summary": "capture summary",
+    "prefix": "-> cilium_health"
+}
+    """)
+
     events = [x for x in p]
 
-    assert len(events) == 5
+    assert len(events) == 6
     assert events[0] == (
         "(k8s:id=app2) => (k8s:id=app1) http GET /private Denied"
     )
@@ -224,6 +237,10 @@ def test_json_processor():
 
     assert events[4] == (
         "debug: debug message on CPU 01"
+    )
+
+    assert events[5] == (
+        "-> cilium_health: capture summary"
     )
 
 
