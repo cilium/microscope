@@ -28,11 +28,14 @@ class MonitorArgs:
                  from_pods: List[str],
                  from_endpoints: List[int],
                  types: List[str],
-                 namespace: str):
+                 namespace: str,
+                 raw: bool
+                 ):
         self.verbose = verbose
         self.hex = hex
         self.resolve_pod_ips = resolve_pod_ips
         self.resolve_endpoint_ids = resolve_endpoint_ids
+        self.raw = raw
         self.related_selectors = related_selectors
         self.related_pods = self.preprocess_pod_names(related_pods)
         self.related_endpoints = related_endpoints
@@ -98,7 +101,10 @@ class MonitorRunner:
 
         mode = ""
 
-        if monitor_args.verbose:
+        if monitor_args.raw:
+            mode = "raw"
+
+        if monitor_args.verbose or cmd_override:
             mode = "verbose"
 
         identities = self.retrieve_identities(endpoints)
@@ -176,7 +182,7 @@ class MonitorRunner:
                 exec_command.append('-v')
             exec_command.append('--hex')
 
-        if not args.hex and not args.verbose:
+        if not args.hex and not args.verbose and not args.raw:
             exec_command.append('--json')
 
         if related_ids:
