@@ -200,9 +200,11 @@ def test_json_processor():
 }
 """)
 
+    p.add_out('{"type":"debug","message":"debug message","cpu":"CPU 01"}')
+
     events = [x for x in p]
 
-    assert len(events) == 4
+    assert len(events) == 5
     assert events[0] == (
         "(k8s:id=app2) => (k8s:id=app1) http GET /private Denied"
     )
@@ -218,6 +220,10 @@ def test_json_processor():
 
     assert events[3] == (
         "drop: Policy denied (L3) (default:app2 10.0.0.1:80(http)) => (default:app1-799c454b56-xcw8t 10.0.0.2:37934)"
+    )
+
+    assert events[4] == (
+        "debug: debug message on CPU 01"
     )
 
 
