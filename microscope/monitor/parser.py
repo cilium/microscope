@@ -2,7 +2,7 @@ import queue as queuemodule
 import time
 import re
 import json
-from typing import List, Dict
+from typing import List, Dict, Tuple
 
 
 class MonitorOutputProcessorSimple:
@@ -150,10 +150,11 @@ class MonitorOutputProcessorL7(MonitorOutputProcessorSimple):
 
 
 class MonitorOutputProcessorJSON(MonitorOutputProcessorSimple):
-    def __init__(self, identities: Dict):
+    def __init__(self, identities: Dict, endpoints: Dict):
         self.std_output = ""
         self.std_err = queuemodule.Queue()
         self.identities = identities
+        self.endpoints = endpoints
 
     def add_out(self, out: str):
         self.std_output += out
@@ -209,10 +210,130 @@ class MonitorOutputProcessorJSON(MonitorOutputProcessorSimple):
                 f" {action} {event['verdict']}")
 
     def parse_trace(self, event: Dict):
-        src_labels = self.parse_labels(self.identities[event["srcLabel"]])
-        dst_labels = self.parse_labels(self.identities[event["dstLabel"]])
+        src_ep, dst_ep = self.get_eps_repr(event)
 
-        return f"({src_labels}) => ({dst_labels})"
+        return (f"trace ({src_ep}) =>"
+                f" ({dst_ep})")
+
+    def get_eps_repr(self, event: Dict) -> Tuple[str, str]:
+        """
+        get_eps_repr returns tuple with source endpoint
+        and destination endpoint representation
+        """
+        src_repr = ""
+        dst_repr = ""
+        src_ip = ""
+        dst_ip = ""
+        src_port = ""
+        dst_port = ""
+        src_ip_l4 = ""
+        dst_ip_l4 = ""
+
+        try:
+            src_ip, dst_ip = self.get_ips4(event)
+        except (KeyError, StopIteration):
+            pass
+        try:
+            src_ip, dst_ip = self.get_ips6(event)
+        except KeyError:
+            pass
+
+        try:
+            src_port, dst_port = self.get_ports(event)
+        except (KeyError, StopIteration):
+            pass
+
+        if src_port and src_ip:
+            src_ip_l4 = src_ip + ":" + src_port
+
+        if dst_port and dst_ip:
+            dst_ip_l4 = dst_ip + ":" + dst_port
+
+        try:
+            if src_ip:
+                src_ep = self.get_ep_by_ip(src_ip)
+                src_repr = (
+                    f"{src_ep['namespace']}:{src_ep['name']}"
+                    f" {src_ip_l4 if src_ip_l4 else src_ip}"
+                )
+        except (KeyError, StopIteration):
+            pass
+
+        try:
+            if not src_repr:
+                src_ep = self.endpoints[event["source"]]
+                src_repr = (
+                    f"{src_ep['namespace']}:{src_ep['name']}"
+                    f" {src_ip_l4 if src_ip_l4 else src_ip}"
+                )
+        except KeyError:
+            pass
+        try:
+            if not src_repr:
+                src_repr = self.parse_labels(
+                    self.identities[event["srcLabel"]])
+        except KeyError:
+            if not src_repr:
+                src_repr = str(event["source"])
+
+        try:
+            if dst_ip:
+                dst_ep = self.get_ep_by_ip(dst_ip)
+                dst_repr = (
+                    f"{dst_ep['namespace']}:{dst_ep['name']}"
+                    f" {dst_ip_l4 if dst_ip_l4 else dst_ip}"
+                )
+        except (KeyError, StopIteration):
+            pass
+
+        try:
+            if not dst_repr:
+                dst_ep = self.endpoints[event["dstID"]]
+                dst_repr = (
+                    f"{dst_ep['namespace']}:{dst_ep['name']}"
+                    f" {dst_ip_l4 if dst_ip_l4 else dst_ip}"
+                )
+        except KeyError:
+            pass
+        try:
+            if not dst_repr:
+                dst_repr = self.parse_labels(
+                    self.identities[event["dstLabel"]])
+        except KeyError:
+            if not dst_repr:
+                dst_repr = str(event["dstID"])
+
+        return (src_repr, dst_repr)
+
+    def get_ips4(self, event: Dict) -> Tuple[str, str]:
+        ipv4 = event["summary"]["ipv4"]
+        fields = ipv4.split(" ")
+        src = next(x for x in fields if "SrcIP=" in x).split("=")[1]
+        dst = next(x for x in fields if "DstIP=" in x).split("=")[1]
+        return (src, dst)
+
+    def get_ips6(self, event: Dict) -> Tuple[str, str]:
+        ipv4 = event["summary"]["ipv6"]
+        fields = ipv4.split(" ")
+        src = next(x for x in fields if "SrcIP=" in x).split("=")[1]
+        dst = next(x for x in fields if "DstIP=" in x).split("=")[1]
+        return (src, dst)
+
+    def get_ep_by_ip(self, ip: str) -> Dict:
+        return next(e for e in self.endpoints.values()
+                    if any(ip == a["ipv4"] or ip == a["ipv6"]
+                           for a in e["networking"]["addressing"]))
+
+    def get_ports(self, event: Dict) -> Tuple[str, str]:
+        try:
+            l4 = event["summary"]["tcp"]
+        except KeyError:
+            l4 = event["summary"]["udp"]
+
+        fields = l4.split(" ")
+        src = next(x for x in fields if "SrcPort=" in x).split("=")[1]
+        dst = next(x for x in fields if "DstPort=" in x).split("=")[1]
+        return (src, dst)
 
     def __next__(self) -> str:
         err = self.get_err()

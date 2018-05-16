@@ -102,6 +102,7 @@ class MonitorRunner:
             mode = "verbose"
 
         identities = self.retrieve_identities(endpoints)
+        endpoint_info = self.retrieve_endpoint_info(endpoints)
         self.monitors = [
             Monitor(name[0], name[1], self.namespace, self.data_queue,
                     self.close_queue, api, cmd, mode, pod_resolver, identities)
@@ -110,7 +111,7 @@ class MonitorRunner:
         for m in self.monitors:
             m.process.start()
 
-    def retrieve_identities(self, endpoint_data: Dict) -> List:
+    def retrieve_identities(self, endpoint_data: Dict) -> Dict:
         labels = {id["id"]: id["labels"] for id in
                   [e["status"]["status"]["identity"]
                    for e in endpoint_data["items"]]}
@@ -122,6 +123,15 @@ class MonitorRunner:
         labels[4] = ["reserved:health"]
 
         return labels
+
+    def retrieve_endpoint_info(self, endpoint_data: Dict) -> Dict:
+        return {x["status"]["id"]:
+                {
+                    "name": x["metadata"]["name"],
+                    "namespace": x["metadata"]["namespace"],
+                    "networking": x["status"]["status"]["networking"]
+                }
+                for x in endpoint_data["items"]}
 
     def get_monitor_command(self, args: MonitorArgs, names: List[str],
                             endpoint_raw_data: Dict) -> List[str]:

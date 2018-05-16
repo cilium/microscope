@@ -25,8 +25,13 @@ class Monitor:
                  api: core_v1_api.CoreV1Api,
                  cmd: List[str],
                  mode: str,
+<<<<<<< HEAD
                  ip_resolver,
                  identities: Dict
+=======
+                 identities: Dict,
+                 endpoints: Dict
+>>>>>>> Add trace json parsing
                  ):
         self.pod_name = pod_name
         self.node_name = node_name
@@ -39,6 +44,8 @@ class Monitor:
         self.ip_resolver = ip_resolver
         # read only
         self.identities = identities
+        # read only
+        self.endpoints = endpoints
 
         self.process = Process(target=self.connect)
         self.output = node_name + "\n"
