@@ -121,6 +121,8 @@ class MonitorOutputProcessorJSON(MonitorOutputProcessorSimple):
             return self.parse_l7(event)
         if event["type"] == "trace":
             return self.parse_trace(event)
+        if event["type"] == "drop":
+            return self.parse_drop(event)
 
         return e
 
@@ -148,6 +150,12 @@ class MonitorOutputProcessorJSON(MonitorOutputProcessorSimple):
         src_ep, dst_ep = self.get_eps_repr(event)
 
         return (f"trace ({src_ep}) =>"
+                f" ({dst_ep})")
+
+    def parse_drop(self, event: Dict):
+        src_ep, dst_ep = self.get_eps_repr(event)
+
+        return (f"drop: {event['reason']} ({src_ep}) =>"
                 f" ({dst_ep})")
 
     def get_eps_repr(self, event: Dict) -> Tuple[str, str]:
