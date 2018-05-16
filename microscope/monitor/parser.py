@@ -127,6 +127,8 @@ class MonitorOutputProcessorJSON(MonitorOutputProcessorSimple):
             return self.parse_debug(event)
         if event["type"] == "capture":
             return self.parse_capture(event)
+        if event["type"] == "agent":
+            return self.parse_agent(event)
 
         return e
 
@@ -167,6 +169,9 @@ class MonitorOutputProcessorJSON(MonitorOutputProcessorSimple):
 
     def parse_capture(self, event: Dict) -> str:
         return f"{event['prefix']}: {event['summary']}"
+
+    def parse_agent(self, event: Dict) -> str:
+        return f"{event['subtype']}: {event['message']}"
 
     def get_eps_repr(self, event: Dict) -> Tuple[str, str]:
         """
