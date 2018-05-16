@@ -123,6 +123,8 @@ class MonitorOutputProcessorJSON(MonitorOutputProcessorSimple):
             return self.parse_trace(event)
         if event["type"] == "drop":
             return self.parse_drop(event)
+        if event["type"] == "debug":
+            return self.parse_debug(event)
 
         return e
 
@@ -130,7 +132,7 @@ class MonitorOutputProcessorJSON(MonitorOutputProcessorSimple):
         return ", ".join([l for l in labels
                           if "k8s:io.kubernetes.pod.namespace=" not in l])
 
-    def parse_l7(self, event: Dict):
+    def parse_l7(self, event: Dict) -> str:
         src_labels = self.parse_labels(event["srcEpLabels"])
         dst_labels = self.parse_labels(event["dstEpLabels"])
 
@@ -146,17 +148,20 @@ class MonitorOutputProcessorJSON(MonitorOutputProcessorSimple):
         return (f"({src_labels}) => ({dst_labels}) {event['l7Proto']}"
                 f" {action} {event['verdict']}")
 
-    def parse_trace(self, event: Dict):
+    def parse_trace(self, event: Dict) -> str:
         src_ep, dst_ep = self.get_eps_repr(event)
 
         return (f"trace ({src_ep}) =>"
                 f" ({dst_ep})")
 
-    def parse_drop(self, event: Dict):
+    def parse_drop(self, event: Dict) -> str:
         src_ep, dst_ep = self.get_eps_repr(event)
 
         return (f"drop: {event['reason']} ({src_ep}) =>"
                 f" ({dst_ep})")
+
+    def parse_debug(self, event: Dict) -> str:
+        return f"debug: {event['message']} on {event['cpu']}"
 
     def get_eps_repr(self, event: Dict) -> Tuple[str, str]:
         """
