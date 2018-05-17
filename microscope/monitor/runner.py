@@ -141,7 +141,7 @@ class MonitorRunner:
 
     def get_monitor_command(self, args: MonitorArgs, names: List[str],
                             endpoint_raw_data: Dict) -> List[str]:
-        endpoints = [[cep['status'] for cep in endpoint_raw_data['items']]]
+        endpoints = [cep['status'] for cep in endpoint_raw_data['items']]
 
         related_ids = self.retrieve_endpoint_ids(endpoints,
                                                  args.related_selectors,
@@ -214,53 +214,52 @@ class MonitorRunner:
                                                    "ciliumendpoints")
         return cep_resp
 
-    def retrieve_endpoint_ids(self, endpoint_data, selectors: List[str],
+    def retrieve_endpoint_ids(self, data, selectors: List[str],
                               pod_names: List[str],
                               namespace: str) -> Set[int]:
         ids = set()
         namespace_matcher = f"k8s:io.kubernetes.pod.namespace={namespace}"
 
-        for data in endpoint_data:
+        try:
+            namesMatch = {
+                endpoint['id'] for endpoint in data
+                if
+                endpoint['status']['external-identifiers']['pod-name']
+                in pod_names
+            }
+        except (KeyError, TypeError):
+            # fall back to older API structure
+            namesMatch = {endpoint['id'] for endpoint in data
+                          if endpoint['pod-name'] in pod_names}
+
+        def labels_match(data, selectors: List[str],
+                         labels_getter: Callable[[Dict], List[str]]):
+            return {
+                endpoint['id'] for endpoint in data
+                if any([
+                    any(
+                        [selector in label
+                         for selector in selectors])
+                    for label
+                    in labels_getter(endpoint)
+                ]) and namespace_matcher in labels_getter(endpoint)
+            }
+
+        getters = [
+                lambda x: x['status']['labels']['security-relevant'],
+                lambda x: x['labels']['orchestration-identity'],
+                lambda x: x['labels']['security-relevant']
+        ]
+        labelsMatch = []
+        for getter in getters:
             try:
-                namesMatch = {
-                    endpoint['id'] for endpoint in data
-                    if
-                    endpoint['status']['external-identifiers']['pod-name']
-                    in pod_names
-                }
+                labelsMatch = labels_match(
+                  data, selectors, getter)
             except (KeyError, TypeError):
-                # fall back to older API structure
-                namesMatch = {endpoint['id'] for endpoint in data
-                              if endpoint['pod-name'] in pod_names}
+                continue
+            break
 
-            def labels_match(endpoint_data, selectors: List[str],
-                             labels_getter: Callable[[Dict], List[str]]):
-                return {
-                    endpoint['id'] for endpoint in data
-                    if any([
-                        any(
-                            [selector in label
-                             for selector in selectors])
-                        for label
-                        in labels_getter(endpoint)
-                    ]) and namespace_matcher in labels_getter(endpoint)
-                }
-
-            getters = [
-                    lambda x: x['status']['labels']['security-relevant'],
-                    lambda x: x['labels']['orchestration-identity'],
-                    lambda x: x['labels']['security-relevant']
-            ]
-            labelsMatch = []
-            for getter in getters:
-                try:
-                    labelsMatch = labels_match(
-                      endpoint_data, selectors, getter)
-                except (KeyError, TypeError):
-                    continue
-                break
-
-            ids.update(namesMatch, labelsMatch)
+        ids.update(namesMatch, labelsMatch)
 
         return ids
 
