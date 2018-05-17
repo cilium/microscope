@@ -15,7 +15,7 @@ from microscope.monitor.epresolver import EndpointResolver
 class MonitorArgs:
     def __init__(self,
                  verbose: bool,
-                 hex: bool,
+                 hex_mode: bool,
                  resolve_pod_ips: bool,
                  resolve_endpoint_ids: bool,
                  related_selectors: List[str],
@@ -32,9 +32,9 @@ class MonitorArgs:
                  raw: bool
                  ):
         self.verbose = verbose
-        self.hex = hex
         self.resolve_pod_ips = resolve_pod_ips
         self.resolve_endpoint_ids = resolve_endpoint_ids
+        self.hex = hex_mode
         self.raw = raw
         self.related_selectors = related_selectors
         self.related_pods = self.preprocess_pod_names(related_pods)
