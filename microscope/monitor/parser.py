@@ -4,13 +4,14 @@ import re
 
 
 class MonitorOutputProcessorSimple:
-    def __init__(self):
+    def __init__(self, resolver):
+        self.resolver = resolver
         self.std_output = queuemodule.Queue()
         self.std_err = queuemodule.Queue()
 
     def add_out(self, out: str):
         for line in out.split("\n"):
-            self.std_output.put(line)
+            self.std_output.put(self.resolver.resolve_to_podnames(line))
 
     def add_err(self, err: str):
         for line in err.split("\n"):
@@ -36,9 +37,10 @@ class MonitorOutputProcessorSimple:
 
 
 class MonitorOutputProcessorVerbose(MonitorOutputProcessorSimple):
-    def __init__(self):
+    def __init__(self, resolver):
         self.std_output = queuemodule.Queue()
         self.std_err = queuemodule.Queue()
+        self.resolver = resolver
         self.current_msg = []
         self.last_event_wait_timeout = 1500
         self.last_event_time = 0
@@ -58,7 +60,8 @@ class MonitorOutputProcessorVerbose(MonitorOutputProcessorSimple):
             self.last_event_time = int(round(time.time() * 1000))
 
             if '---' in line:
-                return self.pop_current(line)
+                resolver = self.resolver
+                return resolver.resolve_to_podnames(self.pop_current(line))
             else:
                 self.current_msg.append(line)
 
@@ -79,7 +82,8 @@ class MonitorOutputProcessorVerbose(MonitorOutputProcessorSimple):
 
 
 class MonitorOutputProcessorL7(MonitorOutputProcessorSimple):
-    def __init__(self):
+    def __init__(self, resolver):
+        self.resolver = resolver
         self.std_output = ""
         self.std_err = queuemodule.Queue()
         self.label_regex = re.compile(r'\(\[.*?\]\)')
@@ -124,7 +128,7 @@ class MonitorOutputProcessorL7(MonitorOutputProcessorSimple):
         try:
             return self.parse_l7_line(line)
         except IndexError:
-            return line
+            return self.resolver.resolve_to_podnames(line)
 
         raise StopIteration
 

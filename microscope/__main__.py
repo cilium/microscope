@@ -20,6 +20,8 @@ def main():
                         'Will not work on last monitor on screen.')
     parser.add_argument('--verbose', action='store_true', default=False)
     parser.add_argument('--hex', action='store_true', default=False)
+    parser.add_argument('--resolve-pod-ips', action='store_true',
+                        default=False, help='Resolve cluster IPs to podnames')
 
     # taken from github.com/cilium/cilium/cmd/monitor.go
     type_choices = ['drop', 'debug', 'capture', 'trace', 'l7', 'agent']
@@ -109,8 +111,9 @@ def main():
     api = core_v1_api.CoreV1Api()
     runner = MonitorRunner(args.cilium_namespace, api, args.namespace)
 
-    monitor_args = MonitorArgs(args.verbose, args.hex, args.selector, args.pod,
-                               args.endpoint, args.to_selector, args.to_pod,
+    monitor_args = MonitorArgs(args.verbose, args.hex, args.resolve_pod_ips,
+                               args.selector, args.pod, args.endpoint,
+                               args.to_selector, args.to_pod,
                                args.to_endpoint, args.from_selector,
                                args.from_pod, args.from_endpoint, args.type,
                                args.namespace)
