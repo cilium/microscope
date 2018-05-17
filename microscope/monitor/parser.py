@@ -212,7 +212,6 @@ class MonitorOutputProcessorJSON(MonitorOutputProcessorSimple):
                 src_ep = self.get_ep_by_ip(src_ip)
                 src_repr = (
                     f"{src_ep['namespace']}:{src_ep['name']}"
-                    f" {src_ip_l4 if src_ip_l4 else src_ip}"
                 )
         except (KeyError, StopIteration):
             pass
@@ -222,7 +221,6 @@ class MonitorOutputProcessorJSON(MonitorOutputProcessorSimple):
                 src_ep = self.endpoints[event["source"]]
                 src_repr = (
                     f"{src_ep['namespace']}:{src_ep['name']}"
-                    f" {src_ip_l4 if src_ip_l4 else src_ip}"
                 )
         except KeyError:
             pass
@@ -234,12 +232,16 @@ class MonitorOutputProcessorJSON(MonitorOutputProcessorSimple):
             if not src_repr:
                 src_repr = str(event["source"])
 
+        if src_ip_l4:
+            src_repr += f" {src_ip_l4}"
+        elif src_ip:
+            src_repr += f" {src_ip}"
+
         try:
             if dst_ip:
                 dst_ep = self.get_ep_by_ip(dst_ip)
                 dst_repr = (
                     f"{dst_ep['namespace']}:{dst_ep['name']}"
-                    f" {dst_ip_l4 if dst_ip_l4 else dst_ip}"
                 )
         except (KeyError, StopIteration):
             pass
@@ -249,7 +251,6 @@ class MonitorOutputProcessorJSON(MonitorOutputProcessorSimple):
                 dst_ep = self.endpoints[event["dstID"]]
                 dst_repr = (
                     f"{dst_ep['namespace']}:{dst_ep['name']}"
-                    f" {dst_ip_l4 if dst_ip_l4 else dst_ip}"
                 )
         except KeyError:
             pass
@@ -260,6 +261,11 @@ class MonitorOutputProcessorJSON(MonitorOutputProcessorSimple):
         except KeyError:
             if not dst_repr:
                 dst_repr = str(event["dstID"])
+
+        if dst_ip_l4:
+            dst_repr += f" {dst_ip_l4}"
+        elif dst_ip:
+            dst_repr += f" {dst_ip}"
 
         return (src_repr, dst_repr)
 
