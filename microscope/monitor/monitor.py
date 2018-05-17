@@ -1,4 +1,4 @@
-from typing import List
+from typing import List,Dict
 import signal
 import threading
 from multiprocessing import Process, Queue
@@ -16,7 +16,6 @@ from microscope.monitor.parser import MonitorOutputProcessorL7
 def sigint_in_monitor(signum, frame):
     pass
 
-
 class Monitor:
     def __init__(self,
                  pod_name: str,
@@ -26,7 +25,8 @@ class Monitor:
                  close_queue: Queue,
                  api: core_v1_api.CoreV1Api,
                  cmd: List[str],
-                 mode: str
+                 mode: str,
+                 ip_resolver,
                  ):
         self.pod_name = pod_name
         self.node_name = node_name
@@ -36,6 +36,7 @@ class Monitor:
         self.api = api
         self.cmd = cmd
         self.mode = mode
+        self.ip_resolver = ip_resolver
 
         self.process = Process(target=self.connect)
         self.output = node_name + "\n"
@@ -62,11 +63,11 @@ class Monitor:
         signal.signal(signal.SIGINT, sigint_in_monitor)
 
         if self.mode == "":
-            processor = MonitorOutputProcessorSimple()
+            processor = MonitorOutputProcessorSimple(self.ip_resolver)
         elif self.mode == "l7":
-            processor = MonitorOutputProcessorL7()
+            processor = MonitorOutputProcessorL7(self.ip_resolver)
         else:
-            processor = MonitorOutputProcessorVerbose()
+            processor = MonitorOutputProcessorVerbose(self.ip_resolver)
 
         while resp.is_open():
             for msg in processor:

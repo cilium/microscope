@@ -9,12 +9,14 @@ from kubernetes.client.rest import ApiException
 from kubernetes.stream import stream
 
 from microscope.monitor.monitor import Monitor
+from microscope.monitor.epresolver import EndpointResolver
 
 
 class MonitorArgs:
     def __init__(self,
                  verbose: bool,
                  hex: bool,
+                 resolve_pod_ips: bool,
                  related_selectors: List[str],
                  related_pods: List[str],
                  related_endpoints: List[int],
@@ -28,6 +30,7 @@ class MonitorArgs:
                  namespace: str):
         self.verbose = verbose
         self.hex = hex
+        self.resolve_pod_ips = resolve_pod_ips
         self.related_selectors = related_selectors
         self.related_pods = self.preprocess_pod_names(related_pods)
         self.related_endpoints = related_endpoints
@@ -85,11 +88,14 @@ class MonitorRunner:
             raise ValueError('No Cilium nodes in cluster match provided names'
                              ', or Cilium is not deployed')
 
+        endpoint_data = self.retrieve_endpoint_data([name[0] for name in names])
+        ip_resolver = EndpointResolver(monitor_args.resolve_pod_ips,
+                                       endpoint_data)
+
         if cmd_override:
             cmd = cmd_override.split(" ")
         else:
-            cmd = self.get_monitor_command(monitor_args,
-                                           [name[0] for name in names])
+            cmd = self.get_monitor_command(monitor_args, endpoint_data)
 
         mode = ""
 
@@ -100,16 +106,14 @@ class MonitorRunner:
 
         self.monitors = [
             Monitor(name[0], name[1], self.namespace, self.data_queue,
-                    self.close_queue, api, cmd, mode)
+                    self.close_queue, api, cmd, mode, ip_resolver)
             for name in names]
 
         for m in self.monitors:
             m.process.start()
 
-    def get_monitor_command(self, args: MonitorArgs, names: List[str]
+    def get_monitor_command(self, args: MonitorArgs, endpoint_data: [Dict]
                             ) -> List[str]:
-        endpoint_data = self.retrieve_endpoint_data(names)
-
         related_ids = self.retrieve_endpoint_ids(endpoint_data,
                                                  args.related_selectors,
                                                  args.related_pods,
