@@ -19,7 +19,11 @@ class EndpointResolver:
     endpoint_data: a list of lists of endpoint objects obtained from
                    cilium-agent or k8s CEPs
     """
-    def __init__(self, resolve_ips: bool, endpoint_data: [Dict]):
+    def __init__(self,
+                 resolve_ips: bool,
+                 resolve_ids: bool,
+                 endpoint_data: [Dict]):
+
         self.ip_resolutions = {}
         self.epid_resolutions = {}
         self.ip_resolutions_regex = None
@@ -32,12 +36,25 @@ class EndpointResolver:
                     for ip in ep['status']['networking']['addressing']:
                         self.ip_resolutions[ip['ipv4']] = podname
                         self.ip_resolutions[ip['ipv6']] = podname
-            self.ip_resolutions_regex = \
-                re.compile("(%s)" %
-                    "|".join(map(re.escape,
-                        self.ip_resolutions.keys())))
+            self.ip_resolutions_regex = re.compile(
+                "(%s)" % "|".join(map(re.escape, self.ip_resolutions.keys())))
+
+        if resolve_ids:  # if false, use the empty dict above that does no work
+            for epdata in endpoint_data:
+                for ep in epdata:
+                    podname = ep['status']['external-identifiers']['pod-name']
+                    # the str(ep['id']) below is needed because the ID is an
+                    # int in json
+                    self.epid_resolutions["endpoint "+str(ep['id'])] = (
+                        "endpoint " + podname)
+            self.epid_resolutions_regex = re.compile(
+                "(%s)" % "|".join(map(re.escape,
+                                      self.epid_resolutions.keys())))
 
     def resolve_to_podnames(self, line):
         """replace fields in line with the podname, if configured"""
-        line = substitute(self.ip_resolutions_regex, self.ip_resolutions, line)
+        line = substitute(self.ip_resolutions_regex, self.ip_resolutions,
+                          line)
+        line = substitute(self.epid_resolutions_regex, self.epid_resolutions,
+                          line)
         return line

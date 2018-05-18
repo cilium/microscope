@@ -1,4 +1,4 @@
-from typing import List,Dict
+from typing import List
 import signal
 import threading
 from multiprocessing import Process, Queue
