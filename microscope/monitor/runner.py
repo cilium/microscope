@@ -17,6 +17,7 @@ class MonitorArgs:
                  verbose: bool,
                  hex: bool,
                  resolve_pod_ips: bool,
+                 resolve_endpoint_ids: bool,
                  related_selectors: List[str],
                  related_pods: List[str],
                  related_endpoints: List[int],
@@ -31,6 +32,7 @@ class MonitorArgs:
         self.verbose = verbose
         self.hex = hex
         self.resolve_pod_ips = resolve_pod_ips
+        self.resolve_endpoint_ids = resolve_endpoint_ids
         self.related_selectors = related_selectors
         self.related_pods = self.preprocess_pod_names(related_pods)
         self.related_endpoints = related_endpoints
@@ -88,9 +90,11 @@ class MonitorRunner:
             raise ValueError('No Cilium nodes in cluster match provided names'
                              ', or Cilium is not deployed')
 
-        endpoint_data = self.retrieve_endpoint_data([name[0] for name in names])
-        ip_resolver = EndpointResolver(monitor_args.resolve_pod_ips,
-                                       endpoint_data)
+        endpoint_data = self.retrieve_endpoint_data(
+            [name[0] for name in names])
+        pod_resolver = EndpointResolver(monitor_args.resolve_pod_ips,
+                                        monitor_args.resolve_endpoint_ids,
+                                        endpoint_data)
 
         if cmd_override:
             cmd = cmd_override.split(" ")
@@ -106,7 +110,7 @@ class MonitorRunner:
 
         self.monitors = [
             Monitor(name[0], name[1], self.namespace, self.data_queue,
-                    self.close_queue, api, cmd, mode, ip_resolver)
+                    self.close_queue, api, cmd, mode, pod_resolver)
             for name in names]
 
         for m in self.monitors:
