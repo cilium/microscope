@@ -75,7 +75,7 @@ class MonitorOutputProcessorVerbose(MonitorOutputProcessorSimple):
 
         raise StopIteration
 
-    def pop_current(self, init: str="") -> str:
+    def pop_current(self, init: str = "") -> str:
         tmp = "\n".join(self.current_msg)
         if init:
             self.current_msg = [init]
@@ -188,11 +188,11 @@ class MonitorOutputProcessorJSON(MonitorOutputProcessorSimple):
         dst_ip_l4 = ""
 
         try:
-            src_ip, dst_ip = self.get_ips4(event)
+            src_ip, dst_ip = self.get_ips(event)
         except (KeyError, StopIteration):
             pass
         try:
-            src_ip, dst_ip = self.get_ips6(event)
+            src_ip, dst_ip = self.get_ips(event)
         except KeyError:
             pass
 
@@ -269,19 +269,8 @@ class MonitorOutputProcessorJSON(MonitorOutputProcessorSimple):
 
         return (src_repr, dst_repr)
 
-    def get_ips4(self, event: Dict) -> Tuple[str, str]:
-        ipv4 = event["summary"]["ipv4"]
-        fields = ipv4.split(" ")
-        src = next(x for x in fields if "SrcIP=" in x).split("=")[1]
-        dst = next(x for x in fields if "DstIP=" in x).split("=")[1]
-        return (src, dst)
-
-    def get_ips6(self, event: Dict) -> Tuple[str, str]:
-        ipv4 = event["summary"]["ipv6"]
-        fields = ipv4.split(" ")
-        src = next(x for x in fields if "SrcIP=" in x).split("=")[1]
-        dst = next(x for x in fields if "DstIP=" in x).split("=")[1]
-        return (src, dst)
+    def get_ips(self, event: Dict) -> Tuple[str, str]:
+        return (event["summary"]["l3"]["src"], event["summary"]["l3"]["dst"])
 
     def get_ep_by_ip(self, ip: str) -> Dict:
         return next(e for e in self.endpoints.values()
@@ -289,15 +278,7 @@ class MonitorOutputProcessorJSON(MonitorOutputProcessorSimple):
                            for a in e["networking"]["addressing"]))
 
     def get_ports(self, event: Dict) -> Tuple[str, str]:
-        try:
-            l4 = event["summary"]["tcp"]
-        except KeyError:
-            l4 = event["summary"]["udp"]
-
-        fields = l4.split(" ")
-        src = next(x for x in fields if "SrcPort=" in x).split("=")[1]
-        dst = next(x for x in fields if "DstPort=" in x).split("=")[1]
-        return (src, dst)
+        return (event["summary"]["l4"]["src"], event["summary"]["l4"]["dst"])
 
     def __next__(self) -> str:
         err = self.get_err()

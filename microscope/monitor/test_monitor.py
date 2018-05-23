@@ -170,11 +170,11 @@ def test_json_processor():
     "srcLabel": 49055,
     "dstLabel": 20496,
     "dstID": 5766,
-    "summary": {"""
-      '"ethernet": "Ethernet\t{Contents=[..14..] Payload=[..54..] SrcMAC=22:46:9b:ed:13:e9 DstMAC=06:ea:01:96:66:ef EthernetType=IPv4 Length=0}",'  # noqa: E501
-      '"ipv4": "IPv4\t{Contents=[..20..] Payload=[..32..] Version=4 IHL=5 TOS=0 Length=52 Id=6649 Flags=DF FragOffset=0 TTL=63 Protocol=TCP Checksum=8653 SrcIP=10.0.0.1 DstIP=10.0.0.2 Options=[] Padding=[]}",'  # noqa: E501
-      '"tcp": "TCP\t{Contents=[..32..] Payload=[] SrcPort=80(http) DstPort=37934 Seq=60693151 Ack=4035039026 DataOffset=8 FIN=true SYN=false RST=false PSH=false ACK=true URG=false ECE=false CWR=false NS=false Window=219 Checksum=37 Urgent=0 Options=[TCPOption(NOP:), TCPOption(NOP:), TCPOption(Timestamps:23462012/23462009 0x0166007c01660079)] Padding=[]}"'  # noqa: E501
-    """}
+    "summary": {
+        "l2":{"src":"22:46:9b:ed:13:e9", "dst":"06:ea:01:96:66:ef"},
+        "l3":{"src":"10.0.0.1", "dst":"10.0.0.2"},
+        "l4":{"src":"80", "dst":"37934"}
+    }
 }
 """)
 
@@ -190,11 +190,11 @@ def test_json_processor():
     "srcLabel": 49055,
     "dstLabel": 20496,
     "dstID": 5766,
-    "summary": {"""
-      '"ethernet": "Ethernet\t{Contents=[..14..] Payload=[..54..] SrcMAC=22:46:9b:ed:13:e9 DstMAC=06:ea:01:96:66:ef EthernetType=IPv4 Length=0}",'  # noqa: E501
-      '"ipv4": "IPv4\t{Contents=[..20..] Payload=[..32..] Version=4 IHL=5 TOS=0 Length=52 Id=6649 Flags=DF FragOffset=0 TTL=63 Protocol=TCP Checksum=8653 SrcIP=10.0.0.1 DstIP=10.0.0.2 Options=[] Padding=[]}",'  # noqa: E501
-      '"tcp": "TCP\t{Contents=[..32..] Payload=[] SrcPort=80(http) DstPort=37934 Seq=60693151 Ack=4035039026 DataOffset=8 FIN=true SYN=false RST=false PSH=false ACK=true URG=false ECE=false CWR=false NS=false Window=219 Checksum=37 Urgent=0 Options=[TCPOption(NOP:), TCPOption(NOP:), TCPOption(Timestamps:23462012/23462009 0x0166007c01660079)] Padding=[]}"'  # noqa: E501
-    """}
+    "summary": {
+        "l2":{"src":"22:46:9b:ed:13:e9", "dst":"06:ea:01:96:66:ef"},
+        "l3":{"src":"10.0.0.1", "dst":"10.0.0.2"},
+        "l4":{"src":"80", "dst":"37934"}
+    }
 }
 """)
 
@@ -241,11 +241,11 @@ def test_json_processor():
     )
 
     assert events[2] == (
-        "trace (default:app2 10.0.0.1:80(http)) => (default:app1-799c454b56-xcw8t 10.0.0.2:37934)"  # noqa: E501
+        "trace (default:app2 10.0.0.1:80) => (default:app1-799c454b56-xcw8t 10.0.0.2:37934)"  # noqa: E501
     )
 
     assert events[3] == (
-        "drop: Policy denied (L3) (default:app2 10.0.0.1:80(http)) => (default:app1-799c454b56-xcw8t 10.0.0.2:37934)"  # noqa: E501
+        "drop: Policy denied (L3) (default:app2 10.0.0.1:80) => (default:app1-799c454b56-xcw8t 10.0.0.2:37934)"  # noqa: E501
     )
 
     assert events[4] == (
@@ -266,10 +266,10 @@ def test_json_processor_ipv4_retrieve():
     p = MonitorOutputProcessorJSON(None, None)
     event = {
         "summary": {
-            "ipv4": 'IPv4\t{Contents=[..20..] Payload=[..32..] Version=4 IHL=5 TOS=0 Length=52 Id=6649 Flags=DF FragOffset=0 TTL=63 Protocol=TCP Checksum=8653 SrcIP=10.0.0.1 DstIP=10.0.0.2 Options=[] Padding=[]}'  # noqa: E501
+            "l3": {"src": "10.0.0.1", "dst": "10.0.0.2"}
         }
     }
-    src, dst = p.get_ips4(event)
+    src, dst = p.get_ips(event)
 
     assert src == "10.0.0.1"
     assert dst == "10.0.0.2"
@@ -302,10 +302,10 @@ def test_json_processor_port_retrieve():
     p = MonitorOutputProcessorJSON(None, None)
     event = {
         "summary": {
-            "tcp": "TCP\t{Contents=[..32..] Payload=[] SrcPort=80(http) DstPort=37934 Seq=60693151 Ack=4035039026 DataOffset=8 FIN=true SYN=false RST=false PSH=false ACK=true URG=false ECE=false CWR=false NS=false Window=219 Checksum=37 Urgent=0 Options=[TCPOption(NOP:), TCPOption(NOP:), TCPOption(Timestamps:23462012/23462009 0x0166007c01660079)] Padding=[]}"  # noqa: E501
+            "l4": {"src": "80", "dst": "37934"}
         }
     }
     src, dst = p.get_ports(event)
 
-    assert src == "80(http)"
+    assert src == "80"
     assert dst == "37934"
