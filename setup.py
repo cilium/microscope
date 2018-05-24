@@ -10,7 +10,7 @@ try:  # for pip >= 10
 except ImportError:  # for pip <= 9.0.3
     from pip.req import parse_requirements
 
-version = "1.0.0"
+version = "1.0.1"
 
 
 with io.open('README.rst', 'r', encoding='utf-8') as readme_file:
