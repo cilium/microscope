@@ -16,6 +16,7 @@ from microscope.monitor.parser import MonitorOutputProcessorSimple
 def sigint_in_monitor(signum, frame):
     pass
 
+
 class Monitor:
     def __init__(self,
                  pod_name: str,
@@ -40,8 +41,6 @@ class Monitor:
         self.ip_resolver = ip_resolver
         # read only
         self.identities = identities
-        # read only
-        self.endpoints = endpoints
 
         self.process = Process(target=self.connect)
         self.output = node_name + "\n"
@@ -68,7 +67,8 @@ class Monitor:
         signal.signal(signal.SIGINT, sigint_in_monitor)
 
         if self.mode == "":
-            processor = MonitorOutputProcessorJSON(self.ip_resolver, self.identities)
+            processor = MonitorOutputProcessorJSON(self.ip_resolver,
+                                                   self.identities)
         elif self.mode == "raw":
             processor = MonitorOutputProcessorSimple(self.ip_resolver)
         else:

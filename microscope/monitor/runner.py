@@ -93,11 +93,14 @@ class MonitorRunner:
             raise ValueError('No Cilium nodes in cluster match provided names'
                              ', or Cilium is not deployed')
 
-        # endpoints = self.retrieve_endpoint_data()
+        endpoints = self.retrieve_endpoint_data()
+        pod_resolver = EndpointResolver(monitor_args.resolve_pod_ips,
+                                        monitor_args.resolve_endpoint_ids,
+                                        endpoints)
         if cmd_override:
             cmd = cmd_override.split(" ")
         else:
-            cmd = self.get_monitor_command(monitor_args, endpoint_data)
+            cmd = self.get_monitor_command(monitor_args, names, endpoints)
 
         mode = ""
 
@@ -108,7 +111,7 @@ class MonitorRunner:
             mode = "verbose"
 
         identities = self.retrieve_identities(endpoints)
-        endpoint_info = self.retrieve_endpoint_info(endpoints)
+
         self.monitors = [
             Monitor(name[0], name[1], self.namespace, self.data_queue,
                     self.close_queue, api, cmd, mode, pod_resolver, identities)
@@ -119,8 +122,8 @@ class MonitorRunner:
 
     def retrieve_identities(self, endpoint_data: Dict) -> Dict:
         labels = {id["id"]: id["labels"] for id in
-                  [e["status"]["status"]["identity"]
-                   for e in endpoint_data["items"]]}
+                  [e["status"]["identity"]
+                   for e in endpoint_data]}
 
         labels[0] = ["reserved:unknown"]
         labels[1] = ["reserved:host"]
@@ -140,9 +143,7 @@ class MonitorRunner:
                 for x in endpoint_data["items"]}
 
     def get_monitor_command(self, args: MonitorArgs, names: List[str],
-                            endpoint_raw_data: Dict) -> List[str]:
-        endpoints = [cep['status'] for cep in endpoint_raw_data['items']]
-
+                            endpoints: List) -> List[str]:
         related_ids = self.retrieve_endpoint_ids(endpoints,
                                                  args.related_selectors,
                                                  args.related_pods,
@@ -212,7 +213,7 @@ class MonitorRunner:
         crds = client.CustomObjectsApi()
         cep_resp = crds.list_cluster_custom_object("cilium.io", "v2",
                                                    "ciliumendpoints")
-        return cep_resp
+        return [e['status'] for e in cep_resp['items']]
 
     def retrieve_endpoint_ids(self, data, selectors: List[str],
                               pod_names: List[str],

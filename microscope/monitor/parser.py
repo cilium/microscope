@@ -85,11 +85,11 @@ class MonitorOutputProcessorVerbose(MonitorOutputProcessorSimple):
 
 
 class MonitorOutputProcessorJSON(MonitorOutputProcessorSimple):
-    def __init__(self, identities: Dict, endpoints: Dict):
+    def __init__(self, resolver, identities):
         self.std_output = ""
         self.std_err = queuemodule.Queue()
+        self.resolver = resolver
         self.identities = identities
-        self.endpoints = endpoints
 
     def add_out(self, out: str):
         self.std_output += out
@@ -209,18 +209,18 @@ class MonitorOutputProcessorJSON(MonitorOutputProcessorSimple):
 
         try:
             if src_ip:
-                src_ep = self.get_ep_by_ip(src_ip)
+                src_ep = self.resolver.ip_to_podname(src_ip)
                 src_repr = (
-                    f"{src_ep['namespace']}:{src_ep['name']}"
+                    f"{src_ep}"
                 )
         except (KeyError, StopIteration):
             pass
 
         try:
             if not src_repr:
-                src_ep = self.endpoints[event["source"]]
+                src_ep = self.resolver.eid_to_podname(event["source"])
                 src_repr = (
-                    f"{src_ep['namespace']}:{src_ep['name']}"
+                    f"{src_ep}"
                 )
         except KeyError:
             pass
@@ -239,18 +239,18 @@ class MonitorOutputProcessorJSON(MonitorOutputProcessorSimple):
 
         try:
             if dst_ip:
-                dst_ep = self.get_ep_by_ip(dst_ip)
+                dst_ep = self.resolver.ip_to_podname(dst_ip)
                 dst_repr = (
-                    f"{dst_ep['namespace']}:{dst_ep['name']}"
+                    f"{dst_ep}"
                 )
         except (KeyError, StopIteration):
             pass
 
         try:
             if not dst_repr:
-                dst_ep = self.endpoints[event["dstID"]]
+                dst_ep = self.resolver.eid_to_podname(event["dstID"])
                 dst_repr = (
-                    f"{dst_ep['namespace']}:{dst_ep['name']}"
+                    f"{dst_ep}"
                 )
         except KeyError:
             pass
