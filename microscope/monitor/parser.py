@@ -5,14 +5,13 @@ from typing import List, Dict, Tuple
 
 
 class MonitorOutputProcessorSimple:
-    def __init__(self, resolver):
-        self.resolver = resolver
+    def __init__(self):
         self.std_output = queuemodule.Queue()
         self.std_err = queuemodule.Queue()
 
     def add_out(self, out: str):
         for line in out.split("\n"):
-            self.std_output.put(self.resolver.resolve_to_podnames(line))
+            self.std_output.put(line)
 
     def add_err(self, err: str):
         for line in err.split("\n"):
@@ -43,10 +42,9 @@ class MonitorOutputProcessorSimple:
 
 
 class MonitorOutputProcessorVerbose(MonitorOutputProcessorSimple):
-    def __init__(self, resolver):
+    def __init__(self):
         self.std_output = queuemodule.Queue()
         self.std_err = queuemodule.Queue()
-        self.resolver = resolver
         self.current_msg = []
         self.last_event_wait_timeout = 1500
         self.last_event_time = 0
@@ -63,8 +61,7 @@ class MonitorOutputProcessorVerbose(MonitorOutputProcessorSimple):
             self.last_event_time = int(round(time.time() * 1000))
 
             if '---' in line:
-                resolver = self.resolver
-                return resolver.resolve_to_podnames(self.pop_current(line))
+                return self.pop_current(line)
             else:
                 self.current_msg.append(line)
 
@@ -85,11 +82,10 @@ class MonitorOutputProcessorVerbose(MonitorOutputProcessorSimple):
 
 
 class MonitorOutputProcessorJSON(MonitorOutputProcessorSimple):
-    def __init__(self, resolver, identities):
+    def __init__(self, resolver):
         self.std_output = ""
         self.std_err = queuemodule.Queue()
         self.resolver = resolver
-        self.identities = identities
 
     def add_out(self, out: str):
         self.std_output += out
@@ -209,7 +205,7 @@ class MonitorOutputProcessorJSON(MonitorOutputProcessorSimple):
 
         try:
             if src_ip:
-                src_ep = self.resolver.ip_to_podname(src_ip)
+                src_ep = self.resolver.resolve_ip(src_ip)
                 src_repr = (
                     f"{src_ep}"
                 )
@@ -218,7 +214,7 @@ class MonitorOutputProcessorJSON(MonitorOutputProcessorSimple):
 
         try:
             if not src_repr:
-                src_ep = self.resolver.eid_to_podname(event["source"])
+                src_ep = self.resolver.resolve_eid(event["source"])
                 src_repr = (
                     f"{src_ep}"
                 )
@@ -227,7 +223,7 @@ class MonitorOutputProcessorJSON(MonitorOutputProcessorSimple):
         try:
             if not src_repr:
                 src_repr = self.parse_labels(
-                    self.identities[event["srcLabel"]])
+                    self.resolver.resolve_identity(event["srcLabel"]))
         except KeyError:
             if not src_repr:
                 src_repr = str(event["source"])
@@ -239,7 +235,7 @@ class MonitorOutputProcessorJSON(MonitorOutputProcessorSimple):
 
         try:
             if dst_ip:
-                dst_ep = self.resolver.ip_to_podname(dst_ip)
+                dst_ep = self.resolver.resolve_ip(dst_ip)
                 dst_repr = (
                     f"{dst_ep}"
                 )
@@ -248,7 +244,7 @@ class MonitorOutputProcessorJSON(MonitorOutputProcessorSimple):
 
         try:
             if not dst_repr:
-                dst_ep = self.resolver.eid_to_podname(event["dstID"])
+                dst_ep = self.resolver.resolve_eid(event["dstID"])
                 dst_repr = (
                     f"{dst_ep}"
                 )
@@ -257,7 +253,7 @@ class MonitorOutputProcessorJSON(MonitorOutputProcessorSimple):
         try:
             if not dst_repr:
                 dst_repr = self.parse_labels(
-                    self.identities[event["dstLabel"]])
+                    self.resolver.resolve_identity(event["dstLabel"]))
         except KeyError:
             if not dst_repr:
                 dst_repr = str(event["dstID"])

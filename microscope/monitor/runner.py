@@ -16,8 +16,6 @@ class MonitorArgs:
     def __init__(self,
                  verbose: bool,
                  hex_mode: bool,
-                 resolve_pod_ips: bool,
-                 resolve_endpoint_ids: bool,
                  related_selectors: List[str],
                  related_pods: List[str],
                  related_endpoints: List[int],
@@ -32,8 +30,6 @@ class MonitorArgs:
                  raw: bool
                  ):
         self.verbose = verbose
-        self.resolve_pod_ips = resolve_pod_ips
-        self.resolve_endpoint_ids = resolve_endpoint_ids
         self.hex = hex_mode
         self.raw = raw
         self.related_selectors = related_selectors
@@ -94,9 +90,8 @@ class MonitorRunner:
                              ', or Cilium is not deployed')
 
         endpoints = self.retrieve_endpoint_data()
-        pod_resolver = EndpointResolver(monitor_args.resolve_pod_ips,
-                                        monitor_args.resolve_endpoint_ids,
-                                        endpoints)
+        pod_resolver = EndpointResolver(endpoints)
+
         if cmd_override:
             cmd = cmd_override.split(" ")
         else:
@@ -110,28 +105,13 @@ class MonitorRunner:
         if monitor_args.verbose or cmd_override:
             mode = "verbose"
 
-        identities = self.retrieve_identities(endpoints)
-
         self.monitors = [
             Monitor(name[0], name[1], self.namespace, self.data_queue,
-                    self.close_queue, api, cmd, mode, pod_resolver, identities)
+                    self.close_queue, api, cmd, mode, pod_resolver)
             for name in names]
 
         for m in self.monitors:
             m.process.start()
-
-    def retrieve_identities(self, endpoint_data: Dict) -> Dict:
-        labels = {id["id"]: id["labels"] for id in
-                  [e["status"]["identity"]
-                   for e in endpoint_data]}
-
-        labels[0] = ["reserved:unknown"]
-        labels[1] = ["reserved:host"]
-        labels[2] = ["reserved:world"]
-        labels[3] = ["reserved:cluster"]
-        labels[4] = ["reserved:health"]
-
-        return labels
 
     def retrieve_endpoint_info(self, endpoint_data: Dict) -> Dict:
         return {x["status"]["id"]:
