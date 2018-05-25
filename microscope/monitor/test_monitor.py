@@ -2,6 +2,7 @@ import time
 from microscope.monitor.parser import MonitorOutputProcessorSimple
 from microscope.monitor.parser import MonitorOutputProcessorVerbose
 from microscope.monitor.parser import MonitorOutputProcessorJSON
+from microscope.monitor.epresolver import EndpointResolver
 
 
 def test_non_verbose_mode():
@@ -71,7 +72,7 @@ def test_verbose_mode():
 
 
 def test_json_processor_get_event():
-    p = MonitorOutputProcessorJSON(None, None)
+    p = MonitorOutputProcessorJSON(None)
 
     p.add_out('{"trolo1":"lolo1"}\n')
     p.add_out('{"trolo2":"')
@@ -83,52 +84,88 @@ def test_json_processor_get_event():
     assert p.get_event() == '{"trolo2":"lolo2"}'
 
 
-test_identities = {
-    0: [],
-    21877: ['reserved:health'],
-    36720: ['k8s:id=app3', 'k8s:io.kubernetes.pod.namespace=default'],
-    45805: ['k8s:io.kubernetes.pod.namespace=default', 'k8s:id=app2'],
-    50228: ['k8s:id=app1', 'k8s:io.kubernetes.pod.namespace=default']}
-
-test_endpoints = {
-    5766: {'name': 'app2',
-           'namespace': 'default',
-           'networking': {'addressing': [{'ipv4': '10.0.0.1',
-                                          'ipv6': 'f00d::a0f:0:0:1686'}]
-                          }
-           },
-    30391: {
-        'name': 'app1-799c454b56-xcw8t',
-        'namespace': 'default',
-        'networking': {'addressing': [{'ipv4': '10.0.0.2',
-                                       'ipv6': 'f00d::a0f:0:0:1687'}]
-                       },
+test_endpoints = [
+    {
+        'id': 5766,
+        'status': {
+            'external-identifiers': {
+                'pod-name': 'default:app2'
+            },
+            'networking': {'addressing': [{'ipv4': '10.0.0.1',
+                                           'ipv6': 'f00d::a0f:0:0:1686'}]
+                           },
+            'identity': {
+                'id': 21877,
+                'labels': ['reserved:health'],
+            }
+        }
     },
-    29898: {
-        'name': 'cilium-health-minikube',
-        'namespace': 'kube-system',
-        'networking': {'addressing': [{'ipv4': '10.0.0.3',
-                                       'ipv6': 'f00d::a0f:0:0:1688'}]
-                       },
+    {
+        'id': 30391,
+        'status': {
+            'external-identifiers': {
+                'pod-name': 'default:app1-799c454b56-xcw8t'
+            },
+            'networking': {'addressing': [{'ipv4': '10.0.0.2',
+                                           'ipv6': 'f00d::a0f:0:0:1687'}]
+                           },
+            'identity': {
+                'id': 50228,
+                'labels': ['k8s:id=app1',
+                           'k8s:io.kubernetes.pod.namespace=default']}
+        }
     },
-    33243: {
-        'name': 'app1-799c454b56-c4q6p',
-        'namespace': 'default',
-        'networking': {'addressing': [{'ipv4': '10.0.0.4',
-                                       'ipv6': 'f00d::a0f:0:0:1689'}]
-                       },
+    {
+        'id': 29898,
+        'status': {
+            'external-identifiers': {
+                'pod-name': 'kube-system:cilium-health-minikube'
+            },
+            'networking': {'addressing': [{'ipv4': '10.0.0.3',
+                                           'ipv6': 'f00d::a0f:0:0:1688'}]
+                           },
+            'identity': {
+                'id': 21877,
+                'labels': ['reserved:health']},
+        }
     },
-    51796: {'name': 'app3',
-            'namespace': 'default',
+    {
+        'id': 33243,
+        'status': {
+            'external-identifiers': {
+                'pod-name': 'default:app1-799c454b56-c4q6p'
+            },
+            'networking': {'addressing': [{'ipv4': '10.0.0.4',
+                                           'ipv6': 'f00d::a0f:0:0:1689'}]
+                           },
+            'identity': {
+                'id': 50228,
+                'labels': ['k8s:id=app1',
+                           'k8s:io.kubernetes.pod.namespace=default']}
+        }
+    },
+    {
+        'id': 51796,
+        'status': {
+            'external-identifiers': {
+                'pod-name': 'default:app3'
+            },
             'networking': {'addressing': [{'ipv4': '10.0.0.5',
                                            'ipv6': 'f00d::a0f:0:0:1690'}]
-                           }
-            },
-}
+                           },
+            'identity': {
+                'id': 36720,
+                'labels': ['k8s:id=app3',
+                           'k8s:io.kubernetes.pod.namespace=default'],
+            }
+        }
+    }
+]
 
 
 def test_json_processor():
-    p = MonitorOutputProcessorJSON(test_identities, test_endpoints)
+    resolver = EndpointResolver(test_endpoints)
+    p = MonitorOutputProcessorJSON(resolver)
 
     p.add_out('{"type":"logRecord","observationPoint":"Ingress","flowType":')
     p.add_out('"Request","l7Proto":"http","srcEpID":0,"srcEpLabels":["k8s:i')
@@ -260,52 +297,3 @@ def test_json_processor():
         "Policy updated: {'labels': ['unspec:io.cilium.k8s.policy.name=rule1', 'unspec:io.cilium.k8s.policy.namespace=default'], 'revision': 10, 'rule_count': 1}"  # noqa: E501
 
     )
-
-
-def test_json_processor_ipv4_retrieve():
-    p = MonitorOutputProcessorJSON(None, None)
-    event = {
-        "summary": {
-            "l3": {"src": "10.0.0.1", "dst": "10.0.0.2"}
-        }
-    }
-    src, dst = p.get_ips(event)
-
-    assert src == "10.0.0.1"
-    assert dst == "10.0.0.2"
-
-
-def test_json_processor_retrieve_ep_by_ip():
-    p = MonitorOutputProcessorJSON(None, test_endpoints)
-
-    ep = p.get_ep_by_ip("10.0.0.2")
-
-    assert ep == test_endpoints[30391]
-
-    ep = p.get_ep_by_ip("f00d::a0f:0:0:1687")
-    assert ep == test_endpoints[30391]
-
-    try:
-        p.get_ep_by_ip("trololo")
-        assert False
-    except StopIteration:
-        pass
-
-    for endpoint in test_endpoints.values():
-        ep = p.get_ep_by_ip(endpoint["networking"]["addressing"][0]["ipv4"])
-        assert ep == endpoint
-        ep = p.get_ep_by_ip(endpoint["networking"]["addressing"][0]["ipv6"])
-        assert ep == endpoint
-
-
-def test_json_processor_port_retrieve():
-    p = MonitorOutputProcessorJSON(None, None)
-    event = {
-        "summary": {
-            "l4": {"src": "80", "dst": "37934"}
-        }
-    }
-    src, dst = p.get_ports(event)
-
-    assert src == "80"
-    assert dst == "37934"

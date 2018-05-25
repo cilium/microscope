@@ -1,4 +1,4 @@
-from typing import List, Dict
+from typing import List
 import signal
 import threading
 from multiprocessing import Process, Queue
@@ -27,8 +27,7 @@ class Monitor:
                  api: core_v1_api.CoreV1Api,
                  cmd: List[str],
                  mode: str,
-                 ip_resolver,
-                 identities: Dict
+                 resolver
                  ):
         self.pod_name = pod_name
         self.node_name = node_name
@@ -38,9 +37,7 @@ class Monitor:
         self.api = api
         self.cmd = cmd
         self.mode = mode
-        self.ip_resolver = ip_resolver
-        # read only
-        self.identities = identities
+        self.resolver = resolver
 
         self.process = Process(target=self.connect)
         self.output = node_name + "\n"
@@ -67,12 +64,11 @@ class Monitor:
         signal.signal(signal.SIGINT, sigint_in_monitor)
 
         if self.mode == "":
-            processor = MonitorOutputProcessorJSON(self.ip_resolver,
-                                                   self.identities)
+            processor = MonitorOutputProcessorJSON(self.resolver)
         elif self.mode == "raw":
-            processor = MonitorOutputProcessorSimple(self.ip_resolver)
+            processor = MonitorOutputProcessorSimple()
         else:
-            processor = MonitorOutputProcessorVerbose(self.ip_resolver)
+            processor = MonitorOutputProcessorVerbose()
 
         while resp.is_open():
             for msg in processor:
