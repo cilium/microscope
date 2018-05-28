@@ -1,6 +1,16 @@
 from typing import Dict, List
 
 
+# https://github.com/cilium/cilium/blob/master/pkg/identity/numericidentity.go#L33
+reserved_identities = {
+    0: ["reserved:unknown"],
+    1: ["reserved:host"],
+    2: ["reserved:world"],
+    3: ["reserved:cluster"],
+    4: ["reserved:health"]
+}
+
+
 class EndpointResolver:
     """EndpointResolver resolves various fields to the pod-name
 
@@ -20,27 +30,27 @@ class EndpointResolver:
                 self.ip_resolutions[ip['ipv4']] = podname
                 self.ip_resolutions[ip['ipv6']] = podname
 
-        for ep in endpoint_data:
-            podname = ep['status']['external-identifiers']['pod-name']
             # the str(ep['id']) below is needed because the ID is an
             # int in json
             self.epid_resolutions[str(ep['id'])] = podname
 
-        self.identities = {id["id"]: id["labels"] for id in
+        ep_identities = {id["id"]: id["labels"] for id in
                            [e["status"]["identity"]
                             for e in endpoint_data]}
 
-        self.identities[0] = ["reserved:unknown"]
-        self.identities[1] = ["reserved:host"]
-        self.identities[2] = ["reserved:world"]
-        self.identities[3] = ["reserved:cluster"]
-        self.identities[4] = ["reserved:health"]
+        self.identities = {**ep_identities, **reserved_identities}
 
     def resolve_ip(self, ip) -> str:
-        return self.ip_resolutions[ip]
+        if ip in self.ip_resolutions:
+            return self.ip_resolutions[ip]
+        return ""
 
     def resolve_eid(self, eid) -> str:
-        return self.epid_resolutions[eid]
+        if eid in self.epid_resolutions:
+            return self.epid_resolutions[eid]
+        return ""
 
     def resolve_identity(self, id) -> List:
-        return self.identities[id]
+        if id in self.identities:
+            return self.identities[id]
+        return ""

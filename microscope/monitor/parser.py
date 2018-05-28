@@ -180,8 +180,6 @@ class MonitorOutputProcessorJSON(MonitorOutputProcessorSimple):
         dst_ip = ""
         src_port = ""
         dst_port = ""
-        src_ip_l4 = ""
-        dst_ip_l4 = ""
 
         try:
             src_ip, dst_ip = self.get_ips(event)
@@ -197,81 +195,41 @@ class MonitorOutputProcessorJSON(MonitorOutputProcessorSimple):
         except (KeyError, StopIteration):
             pass
 
-        if src_port and src_ip:
-            src_ip_l4 = src_ip + ":" + src_port
+        src_repr = self.get_ep_repr(src_ip, src_port, event.get("source"),
+                                    event.get("srcLabel"))
 
-        if dst_port and dst_ip:
-            dst_ip_l4 = dst_ip + ":" + dst_port
-
-        try:
-            if src_ip:
-                src_ep = self.resolver.resolve_ip(src_ip)
-                src_repr = (
-                    f"{src_ep}"
-                )
-        except (KeyError, StopIteration):
-            pass
-
-        try:
-            if not src_repr:
-                src_ep = self.resolver.resolve_eid(event["source"])
-                src_repr = (
-                    f"{src_ep}"
-                )
-        except KeyError:
-            pass
-        try:
-            if not src_repr:
-                src_repr = self.parse_labels(
-                    self.resolver.resolve_identity(event["srcLabel"]))
-        except KeyError:
-            if not src_repr:
-                src_repr = str(event["source"])
-
-        if src_ip_l4:
-            src_repr += f" {src_ip_l4}"
-        elif src_ip:
-            src_repr += f" {src_ip}"
-
-        try:
-            if dst_ip:
-                dst_ep = self.resolver.resolve_ip(dst_ip)
-                dst_repr = (
-                    f"{dst_ep}"
-                )
-        except (KeyError, StopIteration):
-            pass
-
-        try:
-            if not dst_repr:
-                dst_ep = self.resolver.resolve_eid(event["dstID"])
-                dst_repr = (
-                    f"{dst_ep}"
-                )
-        except KeyError:
-            pass
-        try:
-            if not dst_repr:
-                dst_repr = self.parse_labels(
-                    self.resolver.resolve_identity(event["dstLabel"]))
-        except KeyError:
-            if not dst_repr:
-                dst_repr = str(event["dstID"])
-
-        if dst_ip_l4:
-            dst_repr += f" {dst_ip_l4}"
-        elif dst_ip:
-            dst_repr += f" {dst_ip}"
-
+        dst_repr = self.get_ep_repr(dst_ip, dst_port, event.get("dstID"),
+                                    event.get("dstLabel"))
         return (src_repr, dst_repr)
+
+    def get_ep_repr(self, ip, port, ep_id, identity):
+        ip_l4 = ""
+        repr = ""
+        if ip and port:
+            ip_l4 = ip + ":" + port
+
+        if ip:
+            repr = self.resolver.resolve_ip(ip)
+
+        if not repr:
+            repr = self.resolver.resolve_eid(ep_id)
+
+        if not repr:
+            labels = self.resolver.resolve_identity(identity)
+            if labels is not None:
+                repr = self.parse_labels(labels)
+            else:
+                repr = str(identity)
+
+        if ip_l4:
+            repr += f" {ip_l4}"
+        elif ip:
+            repr += f" {ip}"
+
+        return repr
 
     def get_ips(self, event: Dict) -> Tuple[str, str]:
         return (event["summary"]["l3"]["src"], event["summary"]["l3"]["dst"])
-
-    def get_ep_by_ip(self, ip: str) -> Dict:
-        return next(e for e in self.endpoints.values()
-                    if any(ip == a["ipv4"] or ip == a["ipv6"]
-                           for a in e["networking"]["addressing"]))
 
     def get_ports(self, event: Dict) -> Tuple[str, str]:
         return (event["summary"]["l4"]["src"], event["summary"]["l4"]["dst"])
