@@ -43,6 +43,8 @@ def main():
                         'Can specify multiple.')
     parser.add_argument('--endpoint', action='append', type=int, default=[],
                         help='Cilium endpoint ids. Can specify multiple.')
+    parser.add_argument('--ip', action='append', default=[],
+                        help='K8s pod ips. Can specify multiple.')
 
     parser.add_argument('--to-selector', action='append', default=[],
                         help='k8s equality label selectors for pods which '
@@ -60,6 +62,8 @@ def main():
                         help='Cilium endpoint ids. '
                         'Matches events that go to specified endpoints. '
                         'Can specify multiple.')
+    parser.add_argument('--to-ip', action='append', default=[],
+                        help='K8s pod ips. Can specify multiple.')
 
     parser.add_argument('--from-selector', action='append', default=[],
                         help='k8s equality label selectors for pods which '
@@ -78,6 +82,8 @@ def main():
                         help='Cilium endpoint ids. '
                         'Matches events that come from specified endpoints. '
                         'Can specify multiple.')
+    parser.add_argument('--from-ip', action='append', default=[],
+                        help='K8s pod ips. Can specify multiple.')
 
     parser.add_argument('--send-command', type=str, default="",
                         help='Execute command as-provided in argument on '
@@ -117,7 +123,8 @@ def main():
                                args.to_selector, args.to_pod,
                                args.to_endpoint, args.from_selector,
                                args.from_pod, args.from_endpoint, args.type,
-                               args.namespace, args.raw)
+                               args.namespace, args.raw,
+                               args.ip, args.to_ip, args.from_ip)
 
     def handle_signals(_, __):
         runner.finish()
