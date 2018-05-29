@@ -27,7 +27,10 @@ class MonitorArgs:
                  from_endpoints: List[int],
                  types: List[str],
                  namespace: str,
-                 raw: bool
+                 raw: bool,
+                 related_ips: List[str],
+                 to_ips: List[str],
+                 from_ips: List[str]
                  ):
         self.verbose = verbose
         self.hex = hex_mode
@@ -43,6 +46,9 @@ class MonitorArgs:
         self.from_endpoints = from_endpoints
         self.types = types
         self.namespace = namespace
+        self.related_ips = related_ips
+        self.to_ips = to_ips
+        self.from_ips = from_ips
 
     def preprocess_pod_names(self, names: List[str]) -> List[str]:
         def defaultize(name: str):
@@ -127,6 +133,7 @@ class MonitorRunner:
         related_ids = self.retrieve_endpoint_ids(endpoints,
                                                  args.related_selectors,
                                                  args.related_pods,
+                                                 args.related_ips,
                                                  self.endpoint_namespace)
         if (args.related_selectors or args.related_pods) and not related_ids:
             raise NoEndpointException("No related endpoints found")
@@ -136,6 +143,7 @@ class MonitorRunner:
         to_ids = self.retrieve_endpoint_ids(endpoints,
                                             args.to_selectors,
                                             args.to_pods,
+                                            args.to_ips,
                                             self.endpoint_namespace)
         if (args.to_selectors or args.to_pods) and not to_ids:
             raise NoEndpointException("No to endpoints found")
@@ -145,6 +153,7 @@ class MonitorRunner:
         from_ids = self.retrieve_endpoint_ids(endpoints,
                                               args.from_selectors,
                                               args.from_pods,
+                                              args.from_ips,
                                               self.endpoint_namespace)
         if (args.from_selectors or args.from_pods) and not from_ids:
             raise NoEndpointException("No from endpoints found")
@@ -197,6 +206,7 @@ class MonitorRunner:
 
     def retrieve_endpoint_ids(self, data, selectors: List[str],
                               pod_names: List[str],
+                              ips: List[str],
                               namespace: str) -> Set[int]:
         ids = set()
         namespace_matcher = f"k8s:io.kubernetes.pod.namespace={namespace}"
@@ -240,7 +250,19 @@ class MonitorRunner:
                 continue
             break
 
-        ids.update(namesMatch, labelsMatch)
+        ipsMatch = {
+            endpoint['id'] for endpoint in data
+            if any(
+                ip in
+                (item for sublist in
+                 [x.values() for x in
+                  endpoint['status']['networking']['addressing']
+                  ] for item in sublist)
+                for ip in ips
+            )
+        }
+
+        ids.update(namesMatch, labelsMatch, ipsMatch)
 
         return ids
 

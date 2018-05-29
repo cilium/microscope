@@ -3,6 +3,7 @@ from microscope.monitor.parser import MonitorOutputProcessorSimple
 from microscope.monitor.parser import MonitorOutputProcessorVerbose
 from microscope.monitor.parser import MonitorOutputProcessorJSON
 from microscope.monitor.epresolver import EndpointResolver
+from microscope.monitor.runner import MonitorRunner
 
 
 def test_non_verbose_mode():
@@ -297,3 +298,14 @@ def test_json_processor():
         "Policy updated: {'labels': ['unspec:io.cilium.k8s.policy.name=rule1', 'unspec:io.cilium.k8s.policy.namespace=default'], 'revision': 10, 'rule_count': 1}"  # noqa: E501
 
     )
+
+
+def test_runner_retrieve_ep_ids():
+    runner = MonitorRunner(None, None, None)
+
+    ids = runner.retrieve_endpoint_ids(
+        test_endpoints, [], [],
+        ["10.0.0.1", "f00d::a0f:0:0:1687"], "default")
+
+    assert 5766 in ids
+    assert 30391 in ids
