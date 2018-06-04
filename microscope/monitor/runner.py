@@ -1,4 +1,4 @@
-from typing import List, Set, Callable, Dict
+from typing import List, Dict
 import json
 import sys
 from multiprocessing import Queue
@@ -101,7 +101,7 @@ class MonitorRunner:
         if cmd_override:
             cmd = cmd_override.split(" ")
         else:
-            cmd = self.get_monitor_command(monitor_args, names, endpoints)
+            cmd = self.get_monitor_command(monitor_args, names, pod_resolver)
 
         mode = ""
 
@@ -129,32 +129,32 @@ class MonitorRunner:
                 for x in endpoint_data["items"]}
 
     def get_monitor_command(self, args: MonitorArgs, names: List[str],
-                            endpoints: List) -> List[str]:
-        related_ids = self.retrieve_endpoint_ids(endpoints,
-                                                 args.related_selectors,
-                                                 args.related_pods,
-                                                 args.related_ips,
-                                                 self.endpoint_namespace)
+                            resolver: EndpointResolver) -> List[str]:
+        related_ids = resolver.resolve_endpoint_ids(
+            args.related_selectors,
+            args.related_pods,
+            args.related_ips,
+            self.endpoint_namespace)
         if (args.related_selectors or args.related_pods) and not related_ids:
             raise NoEndpointException("No related endpoints found")
 
         related_ids.update(args.related_endpoints)
 
-        to_ids = self.retrieve_endpoint_ids(endpoints,
-                                            args.to_selectors,
-                                            args.to_pods,
-                                            args.to_ips,
-                                            self.endpoint_namespace)
+        to_ids = resolver.resolve_endpoint_ids(
+            args.to_selectors,
+            args.to_pods,
+            args.to_ips,
+            self.endpoint_namespace)
         if (args.to_selectors or args.to_pods) and not to_ids:
             raise NoEndpointException("No to endpoints found")
 
         to_ids.update(args.to_endpoints)
 
-        from_ids = self.retrieve_endpoint_ids(endpoints,
-                                              args.from_selectors,
-                                              args.from_pods,
-                                              args.from_ips,
-                                              self.endpoint_namespace)
+        from_ids = resolver.resolve_endpoint_ids(
+            args.from_selectors,
+            args.from_pods,
+            args.from_ips,
+            self.endpoint_namespace)
         if (args.from_selectors or args.from_pods) and not from_ids:
             raise NoEndpointException("No from endpoints found")
 
@@ -203,68 +203,6 @@ class MonitorRunner:
         cep_resp = crds.list_cluster_custom_object("cilium.io", "v2",
                                                    "ciliumendpoints")
         return [e['status'] for e in cep_resp['items']]
-
-    def retrieve_endpoint_ids(self, data, selectors: List[str],
-                              pod_names: List[str],
-                              ips: List[str],
-                              namespace: str) -> Set[int]:
-        ids = set()
-        namespace_matcher = f"k8s:io.kubernetes.pod.namespace={namespace}"
-
-        try:
-            namesMatch = {
-                endpoint['id'] for endpoint in data
-                if
-                endpoint['status']['external-identifiers']['pod-name']
-                in pod_names
-            }
-        except (KeyError, TypeError):
-            # fall back to older API structure
-            namesMatch = {endpoint['id'] for endpoint in data
-                          if endpoint['pod-name'] in pod_names}
-
-        def labels_match(data, selectors: List[str],
-                         labels_getter: Callable[[Dict], List[str]]):
-            return {
-                endpoint['id'] for endpoint in data
-                if any([
-                    any(
-                        [selector in label
-                         for selector in selectors])
-                    for label
-                    in labels_getter(endpoint)
-                ]) and namespace_matcher in labels_getter(endpoint)
-            }
-
-        getters = [
-                lambda x: x['status']['labels']['security-relevant'],
-                lambda x: x['labels']['orchestration-identity'],
-                lambda x: x['labels']['security-relevant']
-        ]
-        labelsMatch = []
-        for getter in getters:
-            try:
-                labelsMatch = labels_match(
-                  data, selectors, getter)
-            except (KeyError, TypeError):
-                continue
-            break
-
-        ipsMatch = {
-            endpoint['id'] for endpoint in data
-            if any(
-                ip in
-                (item for sublist in
-                 [x.values() for x in
-                  endpoint['status']['networking']['addressing']
-                  ] for item in sublist)
-                for ip in ips
-            )
-        }
-
-        ids.update(namesMatch, labelsMatch, ipsMatch)
-
-        return ids
 
     def get_node_endpoint_data(self, node: str):
         exec_command = ['cilium', 'endpoint', 'list', '-o', 'json']

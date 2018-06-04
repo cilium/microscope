@@ -3,7 +3,6 @@ from microscope.monitor.parser import MonitorOutputProcessorSimple
 from microscope.monitor.parser import MonitorOutputProcessorVerbose
 from microscope.monitor.parser import MonitorOutputProcessorJSON
 from microscope.monitor.epresolver import EndpointResolver
-from microscope.monitor.runner import MonitorRunner
 
 
 def test_non_verbose_mode():
@@ -97,7 +96,13 @@ test_endpoints = [
                            },
             'identity': {
                 'id': 21877,
-                'labels': ['reserved:health'],
+                'labels': ['k8s:id=app2',
+                           'k8s:io.kubernetes.pod.namespace=default']
+            },
+            'labels': {
+                'security-relevant': [
+                    'k8s:id=app2',
+                    'k8s:io.kubernetes.pod.namespace=default']
             }
         }
     },
@@ -113,7 +118,13 @@ test_endpoints = [
             'identity': {
                 'id': 50228,
                 'labels': ['k8s:id=app1',
-                           'k8s:io.kubernetes.pod.namespace=default']}
+                           'k8s:io.kubernetes.pod.namespace=default']
+            },
+            'labels': {
+                'security-relevant': [
+                    'k8s:id=app1',
+                    'k8s:io.kubernetes.pod.namespace=default']
+            }
         }
     },
     {
@@ -127,7 +138,11 @@ test_endpoints = [
                            },
             'identity': {
                 'id': 21877,
-                'labels': ['reserved:health']},
+                'labels': ['reserved:health']
+            },
+            'labels': {
+                'security-relevant': ['reserved:health']
+            }
         }
     },
     {
@@ -142,7 +157,13 @@ test_endpoints = [
             'identity': {
                 'id': 50228,
                 'labels': ['k8s:id=app1',
-                           'k8s:io.kubernetes.pod.namespace=default']}
+                           'k8s:io.kubernetes.pod.namespace=default']
+            },
+            'labels': {
+                'security-relevant': [
+                    'k8s:id=app1',
+                    'k8s:io.kubernetes.pod.namespace=default']
+            }
         }
     },
     {
@@ -158,6 +179,11 @@ test_endpoints = [
                 'id': 36720,
                 'labels': ['k8s:id=app3',
                            'k8s:io.kubernetes.pod.namespace=default'],
+            },
+            'labels': {
+                'security-relevant': [
+                    'k8s:id=app3',
+                    'k8s:io.kubernetes.pod.namespace=default']
             }
         }
     }
@@ -300,12 +326,34 @@ def test_json_processor():
     )
 
 
-def test_runner_retrieve_ep_ids():
-    runner = MonitorRunner(None, None, None)
+def test_resolver_retrieve_ep_ids():
+    resolver = EndpointResolver(test_endpoints)
 
-    ids = runner.retrieve_endpoint_ids(
-        test_endpoints, [], [],
+    ids = resolver.resolve_endpoint_ids(
+        [], [],
         ["10.0.0.1", "f00d::a0f:0:0:1687"], "default")
 
     assert 5766 in ids
     assert 30391 in ids
+
+
+def test_resolver_endpoint_ids_by_selectors():
+    resolver = EndpointResolver(test_endpoints)
+    app1_ids = resolver.resolve_endpoint_ids(['id=app1'], [], [], 'default')
+
+    assert 30391 in app1_ids
+    assert 33243 in app1_ids
+    assert len(app1_ids) == 2
+
+
+def test_resolver_endpoint_ids_by_names():
+    resolver = EndpointResolver(test_endpoints)
+    ids = resolver.resolve_endpoint_ids(
+        [],
+        ['default:app1-799c454b56-xcw8t',
+         'default:app3'],
+        [], 'default')
+
+    assert 30391 in ids
+    assert 51796 in ids
+    assert len(ids) == 2
