@@ -7,7 +7,8 @@ reserved_identities = {
     1: ["reserved:host"],
     2: ["reserved:world"],
     3: ["reserved:cluster"],
-    4: ["reserved:health"]
+    4: ["reserved:health"],
+    5: ["reserved:init"]
 }
 
 
