@@ -70,5 +70,5 @@ spec:
     - sleep
     - "100000"
     image: cilium/microscope:1.0.1
-    imagePullPolicy: Always
+    imagePullPolicy: IfNotPresent
     name: microscope
