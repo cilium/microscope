@@ -12,6 +12,8 @@ COPY docker/motd /etc/motd
 COPY docker/profile /root/profile
 ENV ENV=/root/profile
 
+RUN apk --no-cache add --repository http://dl-cdn.alpinelinux.org/alpine/edge/testing moreutils
+
 COPY --from=0 /usr/src/microscope/pyz/microscope.pyz /bin/microscope
 RUN ln -s /bin/microscope /bin/cilium-microscope
 
