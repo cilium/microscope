@@ -19,6 +19,9 @@ clean:
 docker-image:
 	docker build -t cilium/microscope .
 
+docker-ci:
+	docker build -t cilium/microscope:ci ci
+
 install:
 	python setup.py install
 
