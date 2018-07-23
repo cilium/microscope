@@ -1,4 +1,4 @@
-FROM python:alpine
+FROM python:3.6.6-alpine3.8
 
 RUN apk update
 RUN apk add make
@@ -6,7 +6,7 @@ WORKDIR /usr/src/microscope
 COPY . .
 RUN make pyz
 
-FROM python:alpine
+FROM python:3.6.6-alpine3.8
 
 COPY docker/motd /etc/motd
 COPY docker/profile /root/profile
