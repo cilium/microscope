@@ -1,6 +1,6 @@
 dist
 build
-microscope.egg-info
+*.egg-info
 
 cilium-*
 pyz
