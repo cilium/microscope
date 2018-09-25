@@ -202,7 +202,7 @@ class MonitorRunner:
         crds = client.CustomObjectsApi()
         cep_resp = crds.list_cluster_custom_object("cilium.io", "v2",
                                                    "ciliumendpoints")
-        return [e['status'] for e in cep_resp['items']]
+        return [e['status'] for e in cep_resp['items'] if 'status' in e]
 
     def get_node_endpoint_data(self, node: str):
         exec_command = ['cilium', 'endpoint', 'list', '-o', 'json']

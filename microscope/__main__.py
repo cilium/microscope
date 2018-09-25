@@ -141,10 +141,13 @@ def main():
             ui(runner, args.timeout_monitors)
         elif not args.clear_monitors:
             batch(runner, args.timeout_monitors)
-    except KeyboardInterrupt as e:
+    except KeyboardInterrupt:
         pass
-    except NoEndpointException as e:
+    except NoEndpointException:
         print("Cilium endpoints matching pod names/label selectors not found.")
+    except Exception as e:
+        print("Exception encountered: " + repr(e) + " stack trace below")
+        raise e
     finally:
         runner.finish()
 
