@@ -11,6 +11,13 @@ reserved_identities = {
     5: ["reserved:init"]
 }
 
+def get_pod_name(ep):
+    try:
+        podname = ep['status']['external-identifiers']['pod-name']
+    except KeyError:
+        podname = ep['external-identifiers']['pod-name']
+
+    return podname
 
 class EndpointResolver:
     """EndpointResolver resolves various fields to the pod-name
@@ -27,12 +34,20 @@ class EndpointResolver:
         self.endpoint_data = endpoint_data
 
         for ep in endpoint_data:
-            podname = ep['status']['external-identifiers']['pod-name']
+            podname = get_pod_name(ep)
             for ip in ep['status']['networking']['addressing']:
-                self.ip_resolutions[ip['ipv4']] = podname
-                self.ip_resolutions[ip['ipv6']] = podname
-                self.ip_to_epid_resolutions[ip['ipv4']] = ep['id']
-                self.ip_to_epid_resolutions[ip['ipv6']] = ep['id']
+                try:
+                    ipv4 = ip['ipv4']
+                    self.ip_resolutions[ipv4] = podname
+                    self.ip_to_epid_resolutions[ipv4] = ep['id']
+                except KeyError:
+                    pass
+                try:
+                    ipv6 = ip['ipv6']
+                    self.ip_resolutions[ipv6] = podname
+                    self.ip_to_epid_resolutions[ipv6] = ep['id']
+                except KeyError:
+                    pass
 
             # the str(ep['id']) below is needed because the ID is an
             # int in json
@@ -85,7 +100,7 @@ class EndpointResolver:
             namesMatch = {
                 endpoint['id'] for endpoint in self.endpoint_data
                 if
-                endpoint['status']['external-identifiers']['pod-name']
+                get_pod_name(endpoint)
                 in pod_names
             }
         except (KeyError, TypeError):
